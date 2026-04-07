@@ -1,5 +1,33 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { PARKS } from "./parks-data.mjs";
+import { PARKS, SAO_PAULO } from "./parks-data.mjs";
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function useGeolocation() {
+  const [location, setLocation] = useState(null);
+  const [status, setStatus] = useState("idle"); // idle | loading | granted | denied
+
+  const request = useCallback(() => {
+    if (!navigator.geolocation) { setStatus("denied"); return; }
+    setStatus("loading");
+    navigator.geolocation.getCurrentPosition(
+      pos => { setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setStatus("granted"); },
+      () => setStatus("denied"),
+      { enableHighAccuracy: false, timeout: 10000 }
+    );
+  }, []);
+
+  const reset = useCallback(() => { setLocation(null); setStatus("idle"); }, []);
+
+  return { location, status, request, reset };
+}
 
 const STATUS = {
   aberto:   { label: "Aberto",             color: "#22c55e", bg: "#dcfce7", icon: "✅" },
@@ -254,13 +282,24 @@ export default function App() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
   const { favs, toggle: toggleFav } = useFavorites();
+  const geo = useGeolocation();
 
-  const filtered = useMemo(() => PARKS.filter(p => {
+  const ref = geo.location || SAO_PAULO;
+  const usingGeo = !!geo.location;
+
+  const parksWithDist = useMemo(() =>
+    PARKS.map(p => ({
+      ...p,
+      dist: usingGeo ? Math.round(haversine(ref.lat, ref.lng, p.lat, p.lng)) : p.dist,
+    })).sort((a, b) => a.dist - b.dist),
+  [ref.lat, ref.lng, usingGeo]);
+
+  const filtered = useMemo(() => parksWithDist.filter(p => {
     const ms = p.name.toLowerCase().includes(search.toLowerCase()) || p.state.toLowerCase().includes(search.toLowerCase());
     if (!ms) return false;
     if (filter === "favoritos") return favs.has(p.id);
     return filter === "todos" || p.status === filter;
-  }), [search, filter, favs]);
+  }), [parksWithDist, search, filter, favs]);
 
   const totalPages = Math.ceil(filtered.length / PAGE);
   const visible = filtered.slice((page - 1) * PAGE, page * PAGE);
@@ -277,7 +316,31 @@ export default function App() {
       <div style={{ background: "linear-gradient(135deg,#14532d,#166534,#15803d)", color: "#fff", padding: "32px 24px 24px", textAlign: "center" }}>
         <div style={{ fontSize: 40, marginBottom: 8 }}>🌳</div>
         <h1 style={{ margin: "0 0 4px", fontSize: 24, fontWeight: 800, letterSpacing: -.5 }}>Parques Nacionais do Brasil</h1>
-        <p style={{ margin: "0 0 20px", opacity: .8, fontSize: 14 }}>74 parques · ordenados por distância de SP</p>
+        <p style={{ margin: "0 0 12px", opacity: .8, fontSize: 14 }}>
+          74 parques · ordenados por distância de {usingGeo ? "você" : "SP"}
+        </p>
+        <div style={{ marginBottom: 16 }}>
+          {geo.status === "idle" && (
+            <button onClick={geo.request} style={{
+              background: "#ffffff22", border: "1px solid #fff6", color: "#fff",
+              padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+              📍 Usar minha localização
+            </button>
+          )}
+          {geo.status === "loading" && (
+            <span style={{ fontSize: 12, opacity: .8 }}>📍 Obtendo localização...</span>
+          )}
+          {geo.status === "granted" && (
+            <button onClick={geo.reset} style={{
+              background: "#ffffff22", border: "1px solid #fff6", color: "#fff",
+              padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+              📍 Usando sua localização · Voltar para SP
+            </button>
+          )}
+          {geo.status === "denied" && (
+            <span style={{ fontSize: 12, opacity: .7 }}>📍 Localização negada · usando SP</span>
+          )}
+        </div>
         <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
           {[["todos", "Todos", 74], ["favoritos", "Favoritos", favs.size], ["aberto", "Abertos", counts.aberto], ["limitado", "Limitados", counts.limitado], ["fechado", "Fechados", counts.fechado]].map(([k, l, cnt]) => (
             <button key={k} onClick={() => { setFilter(k); setPage(1); }} style={{
