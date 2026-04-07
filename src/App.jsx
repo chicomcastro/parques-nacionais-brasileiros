@@ -56,7 +56,7 @@ function fetchAllImages(slug) {
     generator: "images",
     gimlimit: "30",
     prop: "imageinfo",
-    iiprop: "url|mime",
+    iiprop: "url|mime|size",
     iiurlwidth: "800",
     format: "json",
     origin: "*",

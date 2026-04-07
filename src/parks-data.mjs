@@ -2,7 +2,7 @@
 export const PARKS = [
   { id: 1, name: "Serra da Bocaina", state: "SP/RJ", dist: 209, access: "🚗", status: "aberto", slug: "Parque_Nacional_da_Serra_da_Bocaina" },
   { id: 2, name: "Itatiaia", state: "MG/RJ", dist: 240, access: "🚗", status: "aberto", slug: "Parque_Nacional_do_Itatiaia" },
-  { id: 3, name: "Superagui", state: "PR", dist: 251, access: "⛵", status: "aberto", slug: "Parque_Nacional_do_Superagui" },
+  { id: 3, name: "Superagui", state: "PR", dist: 251, access: "⛵", status: "aberto", slug: "Parque_Nacional_de_Superagui" },
   { id: 4, name: "Marinho das Ilhas dos Currais", state: "PR", dist: 300, access: "⛵", status: "aberto", slug: "Parque_Nacional_Marinho_das_Ilhas_dos_Currais" },
   { id: 5, name: "Saint-Hilaire/Lange", state: "PR", dist: 312, access: "🚗", status: "limitado", slug: "Parque_Nacional_de_Saint-Hilaire/Lange" },
   { id: 6, name: "Guaricana", state: "PR", dist: 335, access: "🚗", status: "limitado", slug: "Parque_Nacional_Guaricana" },
