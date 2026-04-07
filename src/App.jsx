@@ -9,6 +9,44 @@ const STATUS = {
 
 const PAGE = 12;
 const imgCache = {};
+const LS_KEY = "parques-favoritos";
+
+function loadFavorites() {
+  try { return new Set(JSON.parse(localStorage.getItem(LS_KEY) || "[]")); }
+  catch { return new Set(); }
+}
+
+function saveFavorites(set) {
+  localStorage.setItem(LS_KEY, JSON.stringify([...set]));
+}
+
+function useFavorites() {
+  const [favs, setFavs] = useState(loadFavorites);
+  const toggle = useCallback((id) => {
+    setFavs(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      saveFavorites(next);
+      return next;
+    });
+  }, []);
+  return { favs, toggle };
+}
+
+function FavButton({ active, onClick, size = 24 }) {
+  return (
+    <button onClick={onClick} style={{
+      background: "none", border: "none", cursor: "pointer", padding: 0,
+      fontSize: size, lineHeight: 1, filter: active ? "none" : "grayscale(1) opacity(.5)",
+      transition: "transform .15s, filter .15s",
+    }}
+    onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.2)"; }}
+    onMouseLeave={e => { e.currentTarget.style.transform = ""; }}
+    title={active ? "Remover dos favoritos" : "Adicionar aos favoritos"}>
+      {active ? "❤️" : "🤍"}
+    </button>
+  );
+}
 
 function fetchAllImages(slug) {
   const api = "https://pt.wikipedia.org/w/api.php";
@@ -135,7 +173,7 @@ function Carousel({ images, height, alt, onClickImage }) {
   );
 }
 
-function ParkCard({ park, onClick }) {
+function ParkCard({ park, onClick, isFav, onToggleFav }) {
   const { images, done } = useParkImages(park.slug);
   const meta = STATUS[park.status];
   const wikiUrl = `https://pt.wikipedia.org/wiki/${encodeURIComponent(park.slug)}`;
@@ -159,7 +197,10 @@ function ParkCard({ park, onClick }) {
           fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 20, zIndex: 3 }}>#{park.id}</div>
       </div>
       <div style={{ padding: "12px 14px 14px" }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: "#1e293b", lineHeight: 1.3, marginBottom: 6 }}>{park.name}</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, marginBottom: 6 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#1e293b", lineHeight: 1.3 }}>{park.name}</div>
+          <FavButton active={isFav} size={18} onClick={e => { e.stopPropagation(); onToggleFav(park.id); }} />
+        </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 4 }}>
           <span style={{ fontSize: 12, color: "#64748b", background: "#f1f5f9", padding: "2px 8px", borderRadius: 12 }}>{park.state}</span>
           <span style={{ fontSize: 12, color: "#475569" }}>{park.access} · <b>{park.dist.toLocaleString("pt-BR")} km</b></span>
@@ -169,7 +210,7 @@ function ParkCard({ park, onClick }) {
   );
 }
 
-function Modal({ park, onClose }) {
+function Modal({ park, onClose, isFav, onToggleFav }) {
   const meta = STATUS[park.status];
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -181,7 +222,10 @@ function Modal({ park, onClose }) {
         </div>
         <div style={{ padding: 24 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 20, color: "#1e293b", lineHeight: 1.3 }}>#{park.id} — {park.name}</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <h2 style={{ margin: 0, fontSize: 20, color: "#1e293b", lineHeight: 1.3 }}>#{park.id} — {park.name}</h2>
+              <FavButton active={isFav} size={22} onClick={() => onToggleFav(park.id)} />
+            </div>
             <span style={{ flexShrink: 0, background: meta.bg, color: meta.color, fontSize: 12, fontWeight: 700,
               padding: "4px 10px", borderRadius: 20, border: `1px solid ${meta.color}44` }}>{meta.icon} {meta.label}</span>
           </div>
@@ -209,11 +253,14 @@ export default function App() {
   const [filter, setFilter] = useState("todos");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
+  const { favs, toggle: toggleFav } = useFavorites();
 
   const filtered = useMemo(() => PARKS.filter(p => {
     const ms = p.name.toLowerCase().includes(search.toLowerCase()) || p.state.toLowerCase().includes(search.toLowerCase());
-    return ms && (filter === "todos" || p.status === filter);
-  }), [search, filter]);
+    if (!ms) return false;
+    if (filter === "favoritos") return favs.has(p.id);
+    return filter === "todos" || p.status === filter;
+  }), [search, filter, favs]);
 
   const totalPages = Math.ceil(filtered.length / PAGE);
   const visible = filtered.slice((page - 1) * PAGE, page * PAGE);
@@ -232,7 +279,7 @@ export default function App() {
         <h1 style={{ margin: "0 0 4px", fontSize: 24, fontWeight: 800, letterSpacing: -.5 }}>Parques Nacionais do Brasil</h1>
         <p style={{ margin: "0 0 20px", opacity: .8, fontSize: 14 }}>74 parques · ordenados por distância de SP</p>
         <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
-          {[["todos", "Todos", 74], ["aberto", "Abertos", counts.aberto], ["limitado", "Limitados", counts.limitado], ["fechado", "Fechados", counts.fechado]].map(([k, l, cnt]) => (
+          {[["todos", "Todos", 74], ["favoritos", "Favoritos", favs.size], ["aberto", "Abertos", counts.aberto], ["limitado", "Limitados", counts.limitado], ["fechado", "Fechados", counts.fechado]].map(([k, l, cnt]) => (
             <button key={k} onClick={() => { setFilter(k); setPage(1); }} style={{
               border: "2px solid #fff", background: filter === k ? "#fff" : "transparent",
               color: filter === k ? "#14532d" : "#fff", padding: "6px 16px", borderRadius: 20,
@@ -254,7 +301,7 @@ export default function App() {
         {visible.length === 0
           ? <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}><div style={{ fontSize: 48 }}>🌿</div><p>Nenhum parque encontrado</p></div>
           : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 16 }}>
-              {visible.map(p => <ParkCard key={p.id} park={p} onClick={setSelected} />)}
+              {visible.map(p => <ParkCard key={p.id} park={p} onClick={setSelected} isFav={favs.has(p.id)} onToggleFav={toggleFav} />)}
             </div>}
 
         {totalPages > 1 && (
@@ -277,7 +324,7 @@ export default function App() {
         )}
       </div>
 
-      {selected && <Modal park={selected} onClose={() => setSelected(null)} />}
+      {selected && <Modal park={selected} onClose={() => setSelected(null)} isFav={favs.has(selected.id)} onToggleFav={toggleFav} />}
     </div>
   );
 }
