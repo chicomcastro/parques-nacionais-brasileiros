@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { PARKS } from "./parks-data.mjs";
 
 const STATUS = {
-  aberto:   { label: "Aberto",             color: "#22c55e", bg: "#dcfce7", icon: "\u2705" },
-  limitado: { label: "Estrutura limitada",  color: "#f59e0b", bg: "#fef3c7", icon: "\u26A0\uFE0F" },
-  fechado:  { label: "Fechado",             color: "#ef4444", bg: "#fee2e2", icon: "\u274C" },
+  aberto:   { label: "Aberto",             color: "#22c55e", bg: "#dcfce7", icon: "✅" },
+  limitado: { label: "Estrutura limitada",  color: "#f59e0b", bg: "#fef3c7", icon: "⚠️" },
+  fechado:  { label: "Fechado",             color: "#ef4444", bg: "#fee2e2", icon: "❌" },
 };
 
 const PAGE = 12;
@@ -48,7 +48,7 @@ function ParkCard({ park, onClick }) {
         </div>}
         {done && img && <img src={img} alt={park.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
         {done && !img && <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#94a3b8", fontSize: 13 }}>
-          <span style={{ fontSize: 34 }}>{"\u{1F33F}"}</span><span style={{ marginTop: 6 }}>Sem foto</span>
+          <span style={{ fontSize: 34 }}>🌿</span><span style={{ marginTop: 6 }}>Sem foto</span>
         </div>}
         <div style={{ position: "absolute", top: 8, right: 8, background: meta.bg, color: meta.color,
           fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 20, border: `1px solid ${meta.color}44` }}>
@@ -77,19 +77,19 @@ function Modal({ park, onClose }) {
           {park.img
             ? <img src={park.img} alt={park.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             : <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>
-                <span style={{ fontSize: 56 }}>{"\u{1F33F}"}</span><span style={{ marginTop: 8, fontSize: 14 }}>Sem foto dispon\u00EDvel</span>
+                <span style={{ fontSize: 56 }}>🌿</span><span style={{ marginTop: 8, fontSize: 14 }}>Sem foto disponível</span>
               </div>}
           <button onClick={onClose} style={{ position: "absolute", top: 12, right: 12, background: "#000a", color: "#fff", border: "none",
-            borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>\u00D7</button>
+            borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
         </div>
         <div style={{ padding: 24 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 20, color: "#1e293b", lineHeight: 1.3 }}>#{park.id} \u2014 {park.name}</h2>
+            <h2 style={{ margin: 0, fontSize: 20, color: "#1e293b", lineHeight: 1.3 }}>#{park.id} — {park.name}</h2>
             <span style={{ flexShrink: 0, background: meta.bg, color: meta.color, fontSize: 12, fontWeight: 700,
               padding: "4px 10px", borderRadius: 20, border: `1px solid ${meta.color}44` }}>{meta.icon} {meta.label}</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            {[["\u{1F5FA}\uFE0F Estado", park.state], ["\u{1F4CF} Dist\u00E2ncia", `${park.dist.toLocaleString("pt-BR")} km`], ["\u{1F68C} Acesso", park.access]].map(([k, v]) => (
+            {[["🗺️ Estado", park.state], ["📏 Distância", `${park.dist.toLocaleString("pt-BR")} km`], ["🚌 Acesso", park.access]].map(([k, v]) => (
               <div key={k} style={{ background: "#f8fafc", borderRadius: 12, padding: "10px 14px" }}>
                 <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>{k}</div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#334155" }}>{v}</div>
@@ -99,7 +99,7 @@ function Modal({ park, onClose }) {
           <a href={park.wikiUrl} target="_blank" rel="noreferrer"
             style={{ display: "block", marginTop: 16, textAlign: "center", background: "#0f172a", color: "#fff",
               padding: "10px", borderRadius: 10, textDecoration: "none", fontSize: 13, fontWeight: 600 }}>
-            {"\u{1F517}"} Ver na Wikipedia
+            🔗 Ver na Wikipedia
           </a>
         </div>
       </div>
@@ -131,9 +131,9 @@ export default function App() {
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
       <div style={{ background: "linear-gradient(135deg,#14532d,#166534,#15803d)", color: "#fff", padding: "32px 24px 24px", textAlign: "center" }}>
-        <div style={{ fontSize: 40, marginBottom: 8 }}>{"\u{1F333}"}</div>
+        <div style={{ fontSize: 40, marginBottom: 8 }}>🌳</div>
         <h1 style={{ margin: "0 0 4px", fontSize: 24, fontWeight: 800, letterSpacing: -.5 }}>Parques Nacionais do Brasil</h1>
-        <p style={{ margin: "0 0 20px", opacity: .8, fontSize: 14 }}>74 parques \u00B7 ordenados por dist\u00E2ncia de SP</p>
+        <p style={{ margin: "0 0 20px", opacity: .8, fontSize: 14 }}>74 parques · ordenados por distância de SP</p>
         <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
           {[["todos", "Todos", 74], ["aberto", "Abertos", counts.aberto], ["limitado", "Limitados", counts.limitado], ["fechado", "Fechados", counts.fechado]].map(([k, l, cnt]) => (
             <button key={k} onClick={() => { setFilter(k); setPage(1); }} style={{
@@ -148,14 +148,14 @@ export default function App() {
 
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "12px 24px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
         <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-          placeholder={"\u{1F50D}  Buscar por nome ou estado..."}
+          placeholder="🔍  Buscar por nome ou estado..."
           style={{ flex: 1, minWidth: 200, padding: "8px 14px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, outline: "none" }} />
         <span style={{ fontSize: 13, color: "#64748b", whiteSpace: "nowrap" }}>{filtered.length} parque{filtered.length !== 1 ? "s" : ""}</span>
       </div>
 
       <div style={{ padding: "24px", maxWidth: 1200, margin: "0 auto" }}>
         {visible.length === 0
-          ? <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}><div style={{ fontSize: 48 }}>{"\u{1F33F}"}</div><p>Nenhum parque encontrado</p></div>
+          ? <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}><div style={{ fontSize: 48 }}>🌿</div><p>Nenhum parque encontrado</p></div>
           : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 16 }}>
               {visible.map(p => <ParkCard key={p.id} park={p} onClick={setSelected} />)}
             </div>}
@@ -163,11 +163,11 @@ export default function App() {
         {totalPages > 1 && (
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 32, flexWrap: "wrap" }}>
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: page === 1 ? "default" : "pointer", opacity: page === 1 ? .4 : 1, fontWeight: 600 }}>{"\u2190"} Anterior</button>
+              style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: page === 1 ? "default" : "pointer", opacity: page === 1 ? .4 : 1, fontWeight: 600 }}>← Anterior</button>
             {Array.from({ length: totalPages }, (_, i) => i + 1)
               .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
               .reduce((acc, n, i, arr) => {
-                if (i > 0 && n - arr[i - 1] > 1) acc.push(<span key={`e${n}`} style={{ padding: "0 4px", color: "#94a3b8" }}>{"\u2026"}</span>);
+                if (i > 0 && n - arr[i - 1] > 1) acc.push(<span key={`e${n}`} style={{ padding: "0 4px", color: "#94a3b8" }}>…</span>);
                 acc.push(<button key={n} onClick={() => setPage(n)} style={{
                   width: 36, height: 36, borderRadius: 10, border: `1px solid ${n === page ? "#15803d" : "#e2e8f0"}`,
                   background: n === page ? "#15803d" : "#fff", color: n === page ? "#fff" : "#334155", cursor: "pointer", fontWeight: 700, fontSize: 14
@@ -175,7 +175,7 @@ export default function App() {
                 return acc;
               }, [])}
             <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-              style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: page === totalPages ? "default" : "pointer", opacity: page === totalPages ? .4 : 1, fontWeight: 600 }}>Pr\u00F3xima {"\u2192"}</button>
+              style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: page === totalPages ? "default" : "pointer", opacity: page === totalPages ? .4 : 1, fontWeight: 600 }}>Próxima →</button>
           </div>
         )}
       </div>
