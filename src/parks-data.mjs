@@ -15,7 +15,7 @@ export const PARKS = [
   { id: 13, name: "Restinga de Jurubatiba", state: "RJ", dist: 548, access: "\u{1F697}", status: "limitado", slug: "Parque_Nacional_da_Restinga_de_Jurubatiba" },
   { id: 14, name: "Serra do Cip\u00F3", state: "MG", dist: 565, access: "\u{1F697}", status: "aberto", slug: "Parque_Nacional_da_Serra_do_Cip\u00F3" },
   { id: 15, name: "S\u00E3o Joaquim", state: "SC", dist: 584, access: "\u{1F697}", status: "aberto", slug: "Parque_Nacional_de_S\u00E3o_Joaquim" },
-  { id: 16, name: "Capara\u00F3", state: "ES/MG", dist: 608, access: "\u{1F697}", status: "aberto", slug: "Parque_Nacional_do_Capara\u00F3" },
+  { id: 16, name: "Capara\u00F3", state: "ES/MG", dist: 608, access: "\u{1F697}", status: "aberto", slug: "Parque_Nacional_de_Capara\u00F3" },
   { id: 17, name: "Arauc\u00E1rias", state: "SC", dist: 645, access: "\u{1F697}", status: "limitado", slug: "Parque_Nacional_das_Arauc\u00E1rias" },
   { id: 18, name: "Sempre-vivas", state: "MG", dist: 703, access: "\u{1F697}", status: "limitado", slug: "Parque_Nacional_das_Sempre-Vivas" },
   { id: 19, name: "Serra Geral", state: "RS/SC", dist: 705, access: "\u{1F697}", status: "aberto", slug: "Parque_Nacional_da_Serra_Geral" },
