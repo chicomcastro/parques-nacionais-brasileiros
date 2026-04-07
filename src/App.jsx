@@ -177,8 +177,10 @@ function Carousel({ images, height, alt, onClickImage }) {
   };
 
   return (
-    <div style={{ height, position: "relative", overflow: "hidden" }} onClick={onClickImage}>
-      <img src={images[idx]} alt={alt} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+    <div style={{ height, position: "relative", overflow: "hidden" }}
+      onClick={() => onClickImage?.(idx)}>
+      <img src={images[idx]} alt={alt} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
+        cursor: onClickImage ? "zoom-in" : "default" }} />
       {len > 1 && <>
         <button onClick={prev} style={{ ...btnStyle, left: 6 }}>‹</button>
         <button onClick={next} style={{ ...btnStyle, right: 6 }}>›</button>
@@ -238,13 +240,114 @@ function ParkCard({ park, onClick, isFav, onToggleFav }) {
   );
 }
 
+function Lightbox({ images, startIdx, onClose }) {
+  const [idx, setIdx] = useState(startIdx);
+  const [scale, setScale] = useState(1);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const len = images.length;
+
+  useEffect(() => { setScale(1); setPos({ x: 0, y: 0 }); }, [idx]);
+
+  useEffect(() => {
+    const onKey = e => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft") { setIdx(i => (i - 1 + len) % len); }
+      if (e.key === "ArrowRight") { setIdx(i => (i + 1) % len); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [len, onClose]);
+
+  const handleWheel = useCallback(e => {
+    e.preventDefault();
+    setScale(s => Math.min(5, Math.max(0.5, s - e.deltaY * 0.002)));
+  }, []);
+
+  const handlePointerDown = useCallback(e => {
+    if (scale <= 1) return;
+    e.preventDefault();
+    setDragging(true);
+    setDragStart({ x: e.clientX - pos.x, y: e.clientY - pos.y });
+  }, [scale, pos]);
+
+  const handlePointerMove = useCallback(e => {
+    if (!dragging) return;
+    setPos({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+  }, [dragging, dragStart]);
+
+  const handlePointerUp = useCallback(() => setDragging(false), []);
+
+  const toggleZoom = useCallback(e => {
+    e.stopPropagation();
+    if (scale > 1) { setScale(1); setPos({ x: 0, y: 0 }); }
+    else setScale(3);
+  }, [scale]);
+
+  const navBtn = {
+    position: "absolute", top: "50%", transform: "translateY(-50%)",
+    background: "#fff2", color: "#fff", border: "none", borderRadius: "50%",
+    width: 44, height: 44, cursor: "pointer", fontSize: 22,
+    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10,
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#000e", zIndex: 1100,
+      display: "flex", alignItems: "center", justifyContent: "center", touchAction: "none" }}
+      onClick={e => { if (e.target === e.currentTarget && scale <= 1) onClose(); }}
+      onWheel={handleWheel}
+      onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
+      <div style={{ position: "absolute", top: 12, right: 12, display: "flex", gap: 8, zIndex: 12 }}>
+        <button onClick={toggleZoom} style={{
+          background: "#fff2", color: "#fff", border: "none", borderRadius: "50%",
+          width: 36, height: 36, cursor: "pointer", fontSize: 16,
+          display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {scale > 1 ? "−" : "+"}
+        </button>
+        <button onClick={onClose} style={{
+          background: "#fff2", color: "#fff", border: "none", borderRadius: "50%",
+          width: 36, height: 36, cursor: "pointer", fontSize: 18,
+          display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+      </div>
+      {len > 1 && <>
+        <button onClick={e => { e.stopPropagation(); setIdx(i => (i - 1 + len) % len); }}
+          style={{ ...navBtn, left: 12 }}>‹</button>
+        <button onClick={e => { e.stopPropagation(); setIdx(i => (i + 1) % len); }}
+          style={{ ...navBtn, right: 12 }}>›</button>
+      </>}
+      <img src={images[idx]} alt="" draggable={false}
+        onPointerDown={handlePointerDown}
+        onDoubleClick={toggleZoom}
+        style={{
+          maxWidth: "90vw", maxHeight: "90vh", objectFit: "contain",
+          transform: `translate(${pos.x}px, ${pos.y}px) scale(${scale})`,
+          transition: dragging ? "none" : "transform .2s",
+          cursor: scale > 1 ? (dragging ? "grabbing" : "grab") : "zoom-in",
+          userSelect: "none",
+        }} />
+      {len > 1 && (
+        <div style={{ position: "absolute", bottom: 16, left: "50%", transform: "translateX(-50%)",
+          background: "#000a", color: "#fff", fontSize: 13, fontWeight: 600,
+          padding: "4px 12px", borderRadius: 12, zIndex: 10 }}>
+          {idx + 1} / {len}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Modal({ park, onClose, isFav, onToggleFav }) {
   const meta = STATUS[park.status];
+  const [lightboxIdx, setLightboxIdx] = useState(null);
+  const imgs = park.images || [];
   return (
+    <>
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, overflow: "hidden", maxWidth: 560, width: "100%", boxShadow: "0 20px 60px #0006" }}>
         <div style={{ height: 280, background: "#e2e8f0", position: "relative" }}>
-          <Carousel images={park.images || []} height={280} alt={park.name} />
+          <Carousel images={imgs} height={280} alt={park.name}
+            onClickImage={idx => { if (imgs.length > 0) setLightboxIdx(idx); }} />
           <button onClick={onClose} style={{ position: "absolute", top: 12, right: 12, background: "#000a", color: "#fff", border: "none",
             borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3 }}>×</button>
         </div>
@@ -273,6 +376,10 @@ function Modal({ park, onClose, isFav, onToggleFav }) {
         </div>
       </div>
     </div>
+    {lightboxIdx !== null && (
+      <Lightbox images={imgs} startIdx={lightboxIdx} onClose={() => setLightboxIdx(null)} />
+    )}
+    </>
   );
 }
 
