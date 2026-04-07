@@ -45,8 +45,15 @@ function fetchAllImages(slug) {
             || title.includes("question_book") || title.includes("disambig")
             || title.includes("wiki_letter") || title.includes("portal")
             || title.includes("red_pencil") || title.includes("searchtool")
-            || title.includes("merge-arrow") || title.includes("unbalanced")) return false;
+            || title.includes("merge-arrow") || title.includes("unbalanced")
+            || title.includes("fairytale") || title.includes("nuvola")
+            || title.includes("konqueror") || title.includes("gnome")
+            || title.includes("oxygen") || title.includes("tango")) return false;
           if (mime === "image/svg+xml") return false;
+          // Filter out small UI icons by pixel size
+          const w = info.width || 0;
+          const h = info.height || 0;
+          if (w > 0 && h > 0 && w < 200 && h < 200) return false;
           return true;
         })
         .map(p => {
