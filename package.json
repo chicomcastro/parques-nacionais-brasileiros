@@ -10,6 +10,7 @@
     "validate": "node scripts/validate-parks.mjs"
   },
   "dependencies": {
+    "@amplitude/analytics-browser": "^2.39.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
