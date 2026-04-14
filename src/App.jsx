@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { PARKS, SAO_PAULO } from "./parks-data.mjs";
 import { useVisits } from "./useVisits.js";
 
+// ── Route planning helpers ──────────────────────────────────────────
+
 function haversine(lat1, lng1, lat2, lng2) {
   const R = 6371;
   const toRad = d => d * Math.PI / 180;
@@ -9,6 +11,115 @@ function haversine(lat1, lng1, lat2, lng2) {
   const dLng = toRad(lng2 - lng1);
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function optimizeRoute(parks, startLat, startLng) {
+  if (parks.length === 0) return { ordered: [], legs: [], total: 0 };
+  const remaining = [...parks];
+  const ordered = [];
+  const legs = [];
+  let curLat = startLat;
+  let curLng = startLng;
+  let total = 0;
+
+  while (remaining.length > 0) {
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const d = haversine(curLat, curLng, remaining[i].lat, remaining[i].lng);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    }
+    const pick = remaining.splice(bestIdx, 1)[0];
+    ordered.push(pick);
+    legs.push(Math.round(bestDist));
+    total += bestDist;
+    curLat = pick.lat;
+    curLng = pick.lng;
+  }
+
+  return { ordered, legs, total: Math.round(total) };
+}
+
+function RouteModal({ parks, startLabel, startLat, startLng, onClose, onClear }) {
+  const { ordered, legs, total } = useMemo(
+    () => optimizeRoute(parks, startLat, startLng),
+    [parks, startLat, startLng]
+  );
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 999,
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20,
+        overflow: "hidden", maxWidth: 560, width: "100%", maxHeight: "85vh",
+        boxShadow: "0 20px 60px #0006", display: "flex", flexDirection: "column" }}>
+        {/* Header */}
+        <div style={{ background: "linear-gradient(135deg,#14532d,#166534,#15803d)", color: "#fff",
+          padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 800 }}>🗺️ Seu Roteiro</div>
+            <div style={{ fontSize: 12, opacity: .85, marginTop: 2 }}>{ordered.length} parques · {total.toLocaleString("pt-BR")} km total</div>
+          </div>
+          <button onClick={onClose} style={{ background: "#ffffff22", color: "#fff", border: "none",
+            borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18,
+            display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+        </div>
+
+        {/* Route steps */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px" }}>
+          {/* Starting point */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#15803d", color: "#fff",
+              display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, flexShrink: 0 }}>📍</div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "#1e293b" }}>{startLabel}</div>
+              <div style={{ fontSize: 11, color: "#94a3b8" }}>Ponto de partida</div>
+            </div>
+          </div>
+
+          {ordered.map((park, i) => (
+            <div key={park.id}>
+              {/* Connector line + distance */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 0" }}>
+                <div style={{ width: 32, display: "flex", justifyContent: "center", flexShrink: 0 }}>
+                  <div style={{ width: 2, height: 28, background: "#d1d5db" }} />
+                </div>
+                <span style={{ fontSize: 11, color: "#15803d", fontWeight: 600 }}>↓ {legs[i].toLocaleString("pt-BR")} km</span>
+              </div>
+              {/* Park step */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#dcfce7", color: "#15803d",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, flexShrink: 0,
+                  border: "2px solid #15803d" }}>{i + 1}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "#1e293b" }}>{park.name}</div>
+                  <div style={{ fontSize: 11, color: "#94a3b8" }}>{park.state} · {park.access}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* Total */}
+          <div style={{ marginTop: 20, padding: "14px 16px", background: "#f0fdf4", borderRadius: 12,
+            border: "1px solid #bbf7d0", textAlign: "center" }}>
+            <div style={{ fontSize: 12, color: "#15803d", fontWeight: 600, marginBottom: 2 }}>Distância total estimada</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#14532d" }}>{total.toLocaleString("pt-BR")} km</div>
+          </div>
+        </div>
+
+        {/* Footer actions */}
+        <div style={{ padding: "12px 24px 16px", borderTop: "1px solid #e2e8f0", display: "flex", gap: 12 }}>
+          <button onClick={() => { onClear(); onClose(); }} style={{
+            flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #e2e8f0",
+            background: "#fff", color: "#64748b", cursor: "pointer", fontSize: 13, fontWeight: 600
+          }}>🗑️ Limpar roteiro</button>
+          <button onClick={onClose} style={{
+            flex: 1, padding: "10px", borderRadius: 10, border: "none",
+            background: "#15803d", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600
+          }}>Fechar</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function useGeolocation() {
@@ -204,17 +315,32 @@ function Carousel({ images, height, alt, onClickImage }) {
   );
 }
 
-function ParkCard({ park, onClick, isFav, onToggleFav, isVisited }) {
+function ParkCard({ park, onClick, isFav, onToggleFav, isVisited, routeMode, routeSelected, onRouteToggle }) {
   const { images, done } = useParkImages(park.slug);
   const meta = STATUS[park.status];
   const wikiUrl = `https://pt.wikipedia.org/wiki/${encodeURIComponent(park.slug)}`;
 
+  const handleClick = () => {
+    if (routeMode) { onRouteToggle(park.id); }
+    else { onClick({ ...park, images, wikiUrl }); }
+  };
+
   return (
-    <div onClick={() => onClick({ ...park, images, wikiUrl })}
+    <div onClick={handleClick}
       style={{ borderRadius: 16, overflow: "hidden", cursor: "pointer", background: "#fff",
-        boxShadow: "0 2px 12px #0001", transition: "transform .18s,box-shadow .18s", display: "flex", flexDirection: "column" }}
-      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 28px #0002"; }}
-      onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 2px 12px #0001"; }}>
+        boxShadow: routeSelected ? "0 0 0 3px #15803d" : "0 2px 12px #0001",
+        transition: "transform .18s,box-shadow .18s", display: "flex", flexDirection: "column",
+        position: "relative" }}
+      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = routeSelected ? "0 0 0 3px #15803d, 0 8px 28px #0002" : "0 8px 28px #0002"; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = routeSelected ? "0 0 0 3px #15803d" : "0 2px 12px #0001"; }}>
+      {routeMode && (
+        <div style={{ position: "absolute", top: 8, left: 8, zIndex: 5, width: 26, height: 26,
+          borderRadius: "50%", background: routeSelected ? "#15803d" : "#fff", border: "2px solid #15803d",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 2px 6px #0003", transition: "background .15s" }}>
+          {routeSelected && <span style={{ color: "#fff", fontSize: 14, fontWeight: 800, lineHeight: 1 }}>✓</span>}
+        </div>
+      )}
       <div style={{ height: 160, background: "#e2e8f0", position: "relative", overflow: "hidden" }}>
         {!done && <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ width: 28, height: 28, border: "3px solid #cbd5e1", borderTopColor: "#64748b", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
@@ -224,8 +350,8 @@ function ParkCard({ park, onClick, isFav, onToggleFav, isVisited }) {
           fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 20, border: `1px solid ${meta.color}44`, zIndex: 3 }}>
           {meta.icon} {meta.label}
         </div>
-        <div style={{ position: "absolute", top: 8, left: 8, background: "#1e293bcc", color: "#fff",
-          fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 20, zIndex: 3 }}>#{park.id}</div>
+        {!routeMode && <div style={{ position: "absolute", top: 8, left: 8, background: "#1e293bcc", color: "#fff",
+          fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 20, zIndex: 3 }}>#{park.id}</div>}
         {isVisited && (
           <div style={{ position: "absolute", bottom: 8, left: 8, background: "#15803ddd", color: "#fff",
             fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 20, zIndex: 3,
@@ -237,7 +363,7 @@ function ParkCard({ park, onClick, isFav, onToggleFav, isVisited }) {
       <div style={{ padding: "12px 14px 14px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, marginBottom: 6 }}>
           <div style={{ fontWeight: 700, fontSize: 14, color: "#1e293b", lineHeight: 1.3 }}>{park.name}</div>
-          <FavButton active={isFav} size={18} onClick={e => { e.stopPropagation(); onToggleFav(park.id); }} />
+          {!routeMode && <FavButton active={isFav} size={18} onClick={e => { e.stopPropagation(); onToggleFav(park.id); }} />}
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 4 }}>
           <span style={{ fontSize: 12, color: "#64748b", background: "#f1f5f9", padding: "2px 8px", borderRadius: 12 }}>{park.state}</span>
@@ -494,7 +620,7 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
               padding: "4px 10px", borderRadius: 20, border: `1px solid ${meta.color}44` }}>{meta.icon} {meta.label}</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            {[["🗺️ Estado", park.state], ["📏 Distância", `${park.dist.toLocaleString("pt-BR")} km`], ["🚌 Acesso", park.access]].map(([k, v]) => (
+            {[["🗺️ Estado", park.state], ["📏 Distância", `${park.dist.toLocaleString("pt-BR")} km`], ["🚌 Acesso", park.access], ["🎫 Entrada", park.entrada], ["🕐 Horário", park.horario], ["📅 Melhor época", park.melhorEpoca], ["🥾 Trilhas", park.trilhas?.length > 0 ? park.trilhas.join(", ") : "Sem trilhas cadastradas"]].map(([k, v]) => (
               <div key={k} style={{ background: "#f8fafc", borderRadius: 12, padding: "10px 14px" }}>
                 <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>{k}</div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#334155" }}>{v}</div>
@@ -612,6 +738,28 @@ export default function App() {
   const { visits, save: saveVisit, remove: removeVisit, isVisited } = useVisits();
   const geo = useGeolocation();
 
+  // Route planning state
+  const [routeMode, setRouteMode] = useState(false);
+  const [routeIds, setRouteIds] = useState(new Set());
+  const [showRoute, setShowRoute] = useState(false);
+
+  const toggleRouteMode = useCallback(() => {
+    setRouteMode(prev => !prev);
+    if (routeMode) { setRouteIds(new Set()); }
+  }, [routeMode]);
+
+  const toggleRouteId = useCallback((id) => {
+    setRouteIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearRoute = useCallback(() => {
+    setRouteIds(new Set());
+  }, []);
+
   const ref = geo.location || SAO_PAULO;
   const usingGeo = !!geo.location;
 
@@ -636,6 +784,10 @@ export default function App() {
     limitado: PARKS.filter(p => p.status === "limitado").length,
     fechado: PARKS.filter(p => p.status === "fechado").length,
   };
+
+  const routeParks = useMemo(() =>
+    parksWithDist.filter(p => routeIds.has(p.id)),
+  [parksWithDist, routeIds]);
 
   return (
     <div style={{ minHeight: "100vh", background: "#f0fdf4", fontFamily: "system-ui,sans-serif" }}>
@@ -687,10 +839,19 @@ export default function App() {
         </div>
       </div>
 
-      <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "12px 24px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+      <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "12px 24px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
           placeholder="🔍  Buscar por nome ou estado..."
           style={{ flex: 1, minWidth: 200, padding: "8px 14px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, outline: "none" }} />
+        <button onClick={toggleRouteMode} style={{
+          padding: "8px 16px", borderRadius: 20, border: "none", cursor: "pointer",
+          fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", transition: "all .15s",
+          background: routeMode ? "linear-gradient(135deg,#14532d,#15803d)" : "#f0fdf4",
+          color: routeMode ? "#fff" : "#15803d",
+          boxShadow: routeMode ? "0 2px 8px #15803d44" : "none",
+        }}>
+          {routeMode ? "✕ Sair do roteiro" : "🗺️ Montar Roteiro"}
+        </button>
         <span style={{ fontSize: 13, color: "#64748b", whiteSpace: "nowrap" }}>{filtered.length} parque{filtered.length !== 1 ? "s" : ""}</span>
       </div>
 
@@ -704,7 +865,8 @@ export default function App() {
           {visible.length === 0
             ? <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}><div style={{ fontSize: 48 }}>🌿</div><p>Nenhum parque encontrado</p></div>
             : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 16 }}>
-                {visible.map(p => <ParkCard key={p.id} park={p} onClick={setSelected} isFav={favs.has(p.id)} onToggleFav={toggleFav} isVisited={isVisited(p.id)} />)}
+                {visible.map(p => <ParkCard key={p.id} park={p} onClick={setSelected} isFav={favs.has(p.id)} onToggleFav={toggleFav} isVisited={isVisited(p.id)}
+                  routeMode={routeMode} routeSelected={routeIds.has(p.id)} onRouteToggle={toggleRouteId} />)}
               </div>}
 
           {totalPages > 1 && (
@@ -731,7 +893,46 @@ export default function App() {
       {selected && <Modal park={selected} onClose={() => setSelected(null)} isFav={favs.has(selected.id)} onToggleFav={toggleFav}
         visit={visits[selected.id] || null} onSaveVisit={saveVisit} onRemoveVisit={removeVisit} />}
 
-      <footer style={{ textAlign: "center", padding: "24px", color: "#94a3b8", fontSize: 12, borderTop: "1px solid #e2e8f0" }}>
+      {/* Floating route selection bar */}
+      {routeMode && routeIds.size > 0 && (
+        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 900,
+          background: "linear-gradient(135deg,#14532d,#166534,#15803d)",
+          padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between",
+          boxShadow: "0 -4px 20px #0003" }}>
+          <span style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>
+            {routeIds.size} parque{routeIds.size !== 1 ? "s" : ""} selecionado{routeIds.size !== 1 ? "s" : ""}
+          </span>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={clearRoute} style={{
+              padding: "8px 16px", borderRadius: 20, border: "1px solid #fff6",
+              background: "transparent", color: "#fff", cursor: "pointer",
+              fontSize: 13, fontWeight: 600 }}>
+              Limpar
+            </button>
+            <button onClick={() => setShowRoute(true)} style={{
+              padding: "8px 20px", borderRadius: 20, border: "none",
+              background: "#fff", color: "#14532d", cursor: "pointer",
+              fontSize: 13, fontWeight: 700, boxShadow: "0 2px 8px #0003" }}>
+              Ver Roteiro
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Route modal */}
+      {showRoute && routeIds.size > 0 && (
+        <RouteModal
+          parks={routeParks}
+          startLabel={usingGeo ? "Sua localização" : "São Paulo"}
+          startLat={ref.lat}
+          startLng={ref.lng}
+          onClose={() => setShowRoute(false)}
+          onClear={() => { clearRoute(); setShowRoute(false); }}
+        />
+      )}
+
+      <footer style={{ textAlign: "center", padding: "24px", color: "#94a3b8", fontSize: 12, borderTop: "1px solid #e2e8f0",
+        marginBottom: routeMode && routeIds.size > 0 ? 60 : 0 }}>
         Atualizado em 07/04/2026 · Dados: Wikipedia
       </footer>
     </div>
