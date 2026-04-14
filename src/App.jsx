@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { PARKS, SAO_PAULO } from "./parks-data.mjs";
+import { track } from "./analytics.mjs";
 
 function haversine(lat1, lng1, lat2, lng2) {
   const R = 6371;
@@ -53,8 +54,10 @@ function useFavorites() {
   const toggle = useCallback((id) => {
     setFavs(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      const adding = !next.has(id);
+      if (adding) next.add(id); else next.delete(id);
       saveFavorites(next);
+      track(adding ? "favorite_add" : "favorite_remove", { park_id: id });
       return next;
     });
   }, []);
@@ -347,7 +350,7 @@ function Modal({ park, onClose, isFav, onToggleFav }) {
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, overflow: "hidden", maxWidth: 560, width: "100%", boxShadow: "0 20px 60px #0006" }}>
         <div style={{ height: 280, background: "#e2e8f0", position: "relative" }}>
           <Carousel images={imgs} height={280} alt={park.name}
-            onClickImage={idx => { if (imgs.length > 0) setLightboxIdx(idx); }} />
+            onClickImage={idx => { if (imgs.length > 0) { setLightboxIdx(idx); track("lightbox_open", { park_id: park.id }); } }} />
           <button onClick={onClose} style={{ position: "absolute", top: 12, right: 12, background: "#000a", color: "#fff", border: "none",
             borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3 }}>×</button>
         </div>
@@ -428,7 +431,7 @@ export default function App() {
         </p>
         <div style={{ marginBottom: 16 }}>
           {geo.status === "idle" && (
-            <button onClick={geo.request} style={{
+            <button onClick={() => { geo.request(); track("geolocation_request"); }} style={{
               background: "#ffffff22", border: "1px solid #fff6", color: "#fff",
               padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
               📍 Usar minha localização
@@ -450,7 +453,7 @@ export default function App() {
         </div>
         <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
           {[["todos", "Todos", 74], ["favoritos", "Favoritos", favs.size], ["aberto", "Abertos", counts.aberto], ["limitado", "Limitados", counts.limitado], ["fechado", "Fechados", counts.fechado]].map(([k, l, cnt]) => (
-            <button key={k} onClick={() => { setFilter(k); setPage(1); }} style={{
+            <button key={k} onClick={() => { setFilter(k); setPage(1); track("filter_change", { filter: k }); }} style={{
               border: "2px solid #fff", background: filter === k ? "#fff" : "transparent",
               color: filter === k ? "#14532d" : "#fff", padding: "6px 16px", borderRadius: 20,
               cursor: "pointer", fontWeight: 700, fontSize: 13, transition: "all .15s" }}>
@@ -471,7 +474,7 @@ export default function App() {
         {visible.length === 0
           ? <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}><div style={{ fontSize: 48 }}>🌿</div><p>Nenhum parque encontrado</p></div>
           : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 16 }}>
-              {visible.map(p => <ParkCard key={p.id} park={p} onClick={setSelected} isFav={favs.has(p.id)} onToggleFav={toggleFav} />)}
+              {visible.map(p => <ParkCard key={p.id} park={p} onClick={p => { track("park_open", { park_id: p.id, park_name: p.name }); setSelected(p); }} isFav={favs.has(p.id)} onToggleFav={toggleFav} />)}
             </div>}
 
         {totalPages > 1 && (
