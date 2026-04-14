@@ -361,7 +361,7 @@ function Modal({ park, onClose, isFav, onToggleFav }) {
               padding: "4px 10px", borderRadius: 20, border: `1px solid ${meta.color}44` }}>{meta.icon} {meta.label}</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            {[["🗺️ Estado", park.state], ["📏 Distância", `${park.dist.toLocaleString("pt-BR")} km`], ["🚌 Acesso", park.access]].map(([k, v]) => (
+            {[["🗺️ Estado", park.state], ["📏 Distância", `${park.dist.toLocaleString("pt-BR")} km`], ["🚌 Acesso", park.access], ["🎫 Entrada", park.entrada], ["🕐 Horário", park.horario], ["📅 Melhor época", park.melhorEpoca], ["🥾 Trilhas", park.trilhas?.length > 0 ? park.trilhas.join(", ") : "Sem trilhas cadastradas"]].map(([k, v]) => (
               <div key={k} style={{ background: "#f8fafc", borderRadius: 12, padding: "10px 14px" }}>
                 <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>{k}</div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#334155" }}>{v}</div>
