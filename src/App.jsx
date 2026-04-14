@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { PARKS, SAO_PAULO } from "./parks-data.mjs";
+import { useVisits } from "./useVisits.js";
 
 function haversine(lat1, lng1, lat2, lng2) {
   const R = 6371;
@@ -203,7 +204,7 @@ function Carousel({ images, height, alt, onClickImage }) {
   );
 }
 
-function ParkCard({ park, onClick, isFav, onToggleFav }) {
+function ParkCard({ park, onClick, isFav, onToggleFav, isVisited }) {
   const { images, done } = useParkImages(park.slug);
   const meta = STATUS[park.status];
   const wikiUrl = `https://pt.wikipedia.org/wiki/${encodeURIComponent(park.slug)}`;
@@ -225,6 +226,13 @@ function ParkCard({ park, onClick, isFav, onToggleFav }) {
         </div>
         <div style={{ position: "absolute", top: 8, left: 8, background: "#1e293bcc", color: "#fff",
           fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 20, zIndex: 3 }}>#{park.id}</div>
+        {isVisited && (
+          <div style={{ position: "absolute", bottom: 8, left: 8, background: "#15803ddd", color: "#fff",
+            fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 20, zIndex: 3,
+            display: "flex", alignItems: "center", gap: 3 }}>
+            <span style={{ fontSize: 12 }}>&#10003;</span> Visitado
+          </div>
+        )}
       </div>
       <div style={{ padding: "12px 14px 14px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, marginBottom: 6 }}>
@@ -337,14 +345,139 @@ function Lightbox({ images, startIdx, onClose }) {
   );
 }
 
-function Modal({ park, onClose, isFav, onToggleFav }) {
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function VisitSection({ parkId, visit, onSave, onRemove }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [editing, setEditing] = useState(!visit);
+  const [date, setDate] = useState(visit?.date || today);
+  const [notes, setNotes] = useState(visit?.notes || "");
+  const [photos, setPhotos] = useState(visit?.photos || []);
+  const [saving, setSaving] = useState(false);
+
+  const handleFiles = async (e) => {
+    const files = Array.from(e.target.files);
+    const results = await Promise.all(files.map(fileToBase64));
+    setPhotos(prev => [...prev, ...results]);
+  };
+
+  const removePhoto = (idx) => {
+    setPhotos(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSave(parkId, { date, notes, photos });
+    setSaving(false);
+    setEditing(false);
+  };
+
+  const handleRemove = async () => {
+    setSaving(true);
+    await onRemove(parkId);
+    setSaving(false);
+    setEditing(true);
+    setDate(today);
+    setNotes("");
+    setPhotos([]);
+  };
+
+  const inputStyle = {
+    width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db",
+    fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box",
+  };
+
+  if (visit && !editing) {
+    return (
+      <div style={{ marginTop: 16, background: "#f0fdf4", borderRadius: 12, padding: 16, border: "1px solid #bbf7d0" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ fontWeight: 700, fontSize: 14, color: "#15803d" }}>&#10003; Visitado em {visit.date}</span>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => setEditing(true)} style={{
+              background: "#e2e8f0", border: "none", borderRadius: 8, padding: "4px 10px",
+              cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#475569" }}>Editar</button>
+            <button onClick={handleRemove} disabled={saving} style={{
+              background: "#fee2e2", border: "none", borderRadius: 8, padding: "4px 10px",
+              cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#dc2626" }}>Remover</button>
+          </div>
+        </div>
+        {visit.notes && <p style={{ margin: "8px 0 0", fontSize: 13, color: "#334155", whiteSpace: "pre-wrap" }}>{visit.notes}</p>}
+        {visit.photos && visit.photos.length > 0 && (
+          <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+            {visit.photos.map((src, i) => (
+              <img key={i} src={src} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "1px solid #d1d5db" }} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 16, background: "#f8fafc", borderRadius: 12, padding: 16, border: "1px solid #e2e8f0" }}>
+      <div style={{ fontWeight: 700, fontSize: 14, color: "#334155", marginBottom: 10 }}>
+        {visit ? "Editar visita" : "Marcar como visitado"}
+      </div>
+      <div style={{ marginBottom: 8 }}>
+        <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 3 }}>Data da visita</label>
+        <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+      </div>
+      <div style={{ marginBottom: 8 }}>
+        <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 3 }}>Notas (opcional)</label>
+        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
+          placeholder="Suas impressoes sobre o parque..."
+          style={{ ...inputStyle, resize: "vertical" }} />
+      </div>
+      <div style={{ marginBottom: 10 }}>
+        <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 3 }}>Fotos (opcional)</label>
+        <input type="file" accept="image/*" multiple onChange={handleFiles}
+          style={{ fontSize: 12 }} />
+        {photos.length > 0 && (
+          <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+            {photos.map((src, i) => (
+              <div key={i} style={{ position: "relative" }}>
+                <img src={src} alt="" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid #d1d5db" }} />
+                <button onClick={() => removePhoto(i)} style={{
+                  position: "absolute", top: -4, right: -4, background: "#ef4444", color: "#fff",
+                  border: "none", borderRadius: "50%", width: 16, height: 16, fontSize: 10,
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  lineHeight: 1, padding: 0 }}>x</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={handleSave} disabled={saving} style={{
+          flex: 1, background: "#15803d", color: "#fff", border: "none", borderRadius: 8,
+          padding: "8px", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+          {saving ? "Salvando..." : "Salvar visita"}
+        </button>
+        {visit && (
+          <button onClick={() => setEditing(false)} style={{
+            background: "#e2e8f0", border: "none", borderRadius: 8, padding: "8px 14px",
+            cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#475569" }}>Cancelar</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemoveVisit }) {
   const meta = STATUS[park.status];
   const [lightboxIdx, setLightboxIdx] = useState(null);
   const imgs = park.images || [];
   return (
     <>
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, overflow: "hidden", maxWidth: 560, width: "100%", boxShadow: "0 20px 60px #0006" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, overflow: "hidden", maxWidth: 560, width: "100%", boxShadow: "0 20px 60px #0006", maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ height: 280, background: "#e2e8f0", position: "relative" }}>
           <Carousel images={imgs} height={280} alt={park.name}
             onClickImage={idx => { if (imgs.length > 0) setLightboxIdx(idx); }} />
@@ -373,6 +506,7 @@ function Modal({ park, onClose, isFav, onToggleFav }) {
               padding: "10px", borderRadius: 10, textDecoration: "none", fontSize: 13, fontWeight: 600 }}>
             🔗 Ver na Wikipedia
           </a>
+          <VisitSection parkId={park.id} visit={visit} onSave={onSaveVisit} onRemove={onRemoveVisit} />
         </div>
       </div>
     </div>
@@ -383,12 +517,99 @@ function Modal({ park, onClose, isFav, onToggleFav }) {
   );
 }
 
+function PassaporteView({ visits, parks, onSelectPark }) {
+  const visitedParks = useMemo(() => {
+    return parks.filter(p => visits[p.id]).map(p => ({
+      ...p,
+      visit: visits[p.id],
+    })).sort((a, b) => (b.visit.date || "").localeCompare(a.visit.date || ""));
+  }, [parks, visits]);
+
+  const total = Object.keys(visits).length;
+  const pct = ((total / 74) * 100).toFixed(1);
+
+  return (
+    <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
+      <div style={{ background: "#fff", borderRadius: 16, padding: 24, marginBottom: 24,
+        boxShadow: "0 2px 12px #0001", textAlign: "center" }}>
+        <div style={{ fontSize: 48, marginBottom: 8 }}>🛂</div>
+        <h2 style={{ margin: "0 0 4px", fontSize: 22, color: "#14532d", fontWeight: 800 }}>Meu Passaporte</h2>
+        <p style={{ margin: "0 0 12px", fontSize: 14, color: "#64748b" }}>
+          Registro das suas visitas aos parques nacionais
+        </p>
+        <div style={{ display: "flex", justifyContent: "center", gap: 24, flexWrap: "wrap" }}>
+          <div style={{ background: "#f0fdf4", borderRadius: 12, padding: "12px 24px", border: "1px solid #bbf7d0" }}>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#15803d" }}>{total}</div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>de 74 visitados</div>
+          </div>
+          <div style={{ background: "#f0fdf4", borderRadius: 12, padding: "12px 24px", border: "1px solid #bbf7d0" }}>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#15803d" }}>{pct}%</div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>completo</div>
+          </div>
+        </div>
+        {total > 0 && (
+          <div style={{ marginTop: 16, background: "#e2e8f0", borderRadius: 8, height: 10, overflow: "hidden" }}>
+            <div style={{ background: "linear-gradient(90deg, #15803d, #22c55e)", height: "100%",
+              width: `${(total / 74) * 100}%`, borderRadius: 8, transition: "width .3s" }} />
+          </div>
+        )}
+      </div>
+
+      {visitedParks.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}>
+          <div style={{ fontSize: 48 }}>🌿</div>
+          <p>Nenhum parque visitado ainda. Abra um parque e marque como visitado!</p>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 16 }}>
+          {visitedParks.map(p => (
+            <div key={p.id} onClick={() => onSelectPark(p)}
+              style={{ background: "#fff", borderRadius: 16, overflow: "hidden", cursor: "pointer",
+                boxShadow: "0 2px 12px #0001", transition: "transform .18s, box-shadow .18s" }}
+              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 28px #0002"; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 2px 12px #0001"; }}>
+              <div style={{ padding: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>#{p.id} {p.name}</div>
+                  <span style={{ fontSize: 12, color: "#64748b", background: "#f1f5f9", padding: "2px 8px", borderRadius: 12 }}>{p.state}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                  <span style={{ background: "#dcfce7", color: "#15803d", fontSize: 11, fontWeight: 700,
+                    padding: "2px 8px", borderRadius: 12 }}>&#10003; {p.visit.date}</span>
+                </div>
+                {p.visit.notes && (
+                  <p style={{ margin: "6px 0 0", fontSize: 13, color: "#475569", lineHeight: 1.4,
+                    whiteSpace: "pre-wrap", maxHeight: 60, overflow: "hidden" }}>{p.visit.notes}</p>
+                )}
+                {p.visit.photos && p.visit.photos.length > 0 && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                    {p.visit.photos.slice(0, 4).map((src, i) => (
+                      <img key={i} src={src} alt="" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8, border: "1px solid #e2e8f0" }} />
+                    ))}
+                    {p.visit.photos.length > 4 && (
+                      <div style={{ width: 56, height: 56, borderRadius: 8, background: "#e2e8f0",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 12, fontWeight: 700, color: "#64748b" }}>+{p.visit.photos.length - 4}</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("todos");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
+  const [view, setView] = useState("grid"); // "grid" | "passaporte"
   const { favs, toggle: toggleFav } = useFavorites();
+  const { visits, save: saveVisit, remove: removeVisit, isVisited } = useVisits();
   const geo = useGeolocation();
 
   const ref = geo.location || SAO_PAULO;
@@ -450,13 +671,19 @@ export default function App() {
         </div>
         <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
           {[["todos", "Todos", 74], ["favoritos", "Favoritos", favs.size], ["aberto", "Abertos", counts.aberto], ["limitado", "Limitados", counts.limitado], ["fechado", "Fechados", counts.fechado]].map(([k, l, cnt]) => (
-            <button key={k} onClick={() => { setFilter(k); setPage(1); }} style={{
-              border: "2px solid #fff", background: filter === k ? "#fff" : "transparent",
-              color: filter === k ? "#14532d" : "#fff", padding: "6px 16px", borderRadius: 20,
+            <button key={k} onClick={() => { setFilter(k); setPage(1); setView("grid"); }} style={{
+              border: "2px solid #fff", background: filter === k && view === "grid" ? "#fff" : "transparent",
+              color: filter === k && view === "grid" ? "#14532d" : "#fff", padding: "6px 16px", borderRadius: 20,
               cursor: "pointer", fontWeight: 700, fontSize: 13, transition: "all .15s" }}>
               {l} <span style={{ opacity: .7 }}>({cnt})</span>
             </button>
           ))}
+          <button onClick={() => setView(v => v === "passaporte" ? "grid" : "passaporte")} style={{
+            border: "2px solid #fbbf24", background: view === "passaporte" ? "#fbbf24" : "transparent",
+            color: view === "passaporte" ? "#14532d" : "#fbbf24", padding: "6px 16px", borderRadius: 20,
+            cursor: "pointer", fontWeight: 700, fontSize: 13, transition: "all .15s" }}>
+            🛂 Passaporte <span style={{ opacity: .7 }}>({Object.keys(visits).length} / 74)</span>
+          </button>
         </div>
       </div>
 
@@ -467,34 +694,42 @@ export default function App() {
         <span style={{ fontSize: 13, color: "#64748b", whiteSpace: "nowrap" }}>{filtered.length} parque{filtered.length !== 1 ? "s" : ""}</span>
       </div>
 
-      <div style={{ padding: "24px", maxWidth: 1200, margin: "0 auto" }}>
-        {visible.length === 0
-          ? <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}><div style={{ fontSize: 48 }}>🌿</div><p>Nenhum parque encontrado</p></div>
-          : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 16 }}>
-              {visible.map(p => <ParkCard key={p.id} park={p} onClick={setSelected} isFav={favs.has(p.id)} onToggleFav={toggleFav} />)}
-            </div>}
+      {view === "passaporte" ? (
+        <PassaporteView visits={visits} parks={parksWithDist} onSelectPark={(p) => {
+          const wikiUrl = `https://pt.wikipedia.org/wiki/${encodeURIComponent(p.slug)}`;
+          setSelected({ ...p, images: imgCache[p.slug] || [], wikiUrl });
+        }} />
+      ) : (
+        <div style={{ padding: "24px", maxWidth: 1200, margin: "0 auto" }}>
+          {visible.length === 0
+            ? <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}><div style={{ fontSize: 48 }}>🌿</div><p>Nenhum parque encontrado</p></div>
+            : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 16 }}>
+                {visible.map(p => <ParkCard key={p.id} park={p} onClick={setSelected} isFav={favs.has(p.id)} onToggleFav={toggleFav} isVisited={isVisited(p.id)} />)}
+              </div>}
 
-        {totalPages > 1 && (
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 32, flexWrap: "wrap" }}>
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: page === 1 ? "default" : "pointer", opacity: page === 1 ? .4 : 1, fontWeight: 600 }}>← Anterior</button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
-              .reduce((acc, n, i, arr) => {
-                if (i > 0 && n - arr[i - 1] > 1) acc.push(<span key={`e${n}`} style={{ padding: "0 4px", color: "#94a3b8" }}>…</span>);
-                acc.push(<button key={n} onClick={() => setPage(n)} style={{
-                  width: 36, height: 36, borderRadius: 10, border: `1px solid ${n === page ? "#15803d" : "#e2e8f0"}`,
-                  background: n === page ? "#15803d" : "#fff", color: n === page ? "#fff" : "#334155", cursor: "pointer", fontWeight: 700, fontSize: 14
-                }}>{n}</button>);
-                return acc;
-              }, [])}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-              style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: page === totalPages ? "default" : "pointer", opacity: page === totalPages ? .4 : 1, fontWeight: 600 }}>Próxima →</button>
-          </div>
-        )}
-      </div>
+          {totalPages > 1 && (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 32, flexWrap: "wrap" }}>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: page === 1 ? "default" : "pointer", opacity: page === 1 ? .4 : 1, fontWeight: 600 }}>← Anterior</button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
+                .reduce((acc, n, i, arr) => {
+                  if (i > 0 && n - arr[i - 1] > 1) acc.push(<span key={`e${n}`} style={{ padding: "0 4px", color: "#94a3b8" }}>…</span>);
+                  acc.push(<button key={n} onClick={() => setPage(n)} style={{
+                    width: 36, height: 36, borderRadius: 10, border: `1px solid ${n === page ? "#15803d" : "#e2e8f0"}`,
+                    background: n === page ? "#15803d" : "#fff", color: n === page ? "#fff" : "#334155", cursor: "pointer", fontWeight: 700, fontSize: 14
+                  }}>{n}</button>);
+                  return acc;
+                }, [])}
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: page === totalPages ? "default" : "pointer", opacity: page === totalPages ? .4 : 1, fontWeight: 600 }}>Próxima →</button>
+            </div>
+          )}
+        </div>
+      )}
 
-      {selected && <Modal park={selected} onClose={() => setSelected(null)} isFav={favs.has(selected.id)} onToggleFav={toggleFav} />}
+      {selected && <Modal park={selected} onClose={() => setSelected(null)} isFav={favs.has(selected.id)} onToggleFav={toggleFav}
+        visit={visits[selected.id] || null} onSaveVisit={saveVisit} onRemoveVisit={removeVisit} />}
 
       <footer style={{ textAlign: "center", padding: "24px", color: "#94a3b8", fontSize: 12, borderTop: "1px solid #e2e8f0" }}>
         Atualizado em 07/04/2026 · Dados: Wikipedia
