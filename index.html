@@ -3,10 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#14532d" />
     <title>Parques Nacionais do Brasil</title>
+    <link rel="manifest" href="/parques-nacionais-brasileiros/manifest.json" />
+    <link rel="apple-touch-icon" href="/parques-nacionais-brasileiros/icon-192.png" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/parques-nacionais-brasileiros/sw.js');
+      }
+    </script>
   </body>
 </html>
