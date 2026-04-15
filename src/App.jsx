@@ -123,21 +123,38 @@ function RouteModal({ parks, startLabel, startLat, startLng, onClose, onClear })
   );
 }
 
+const LS_GEO = "parques-geolocation";
+
+function loadGeo() {
+  try {
+    const s = localStorage.getItem(LS_GEO);
+    return s ? JSON.parse(s) : null;
+  } catch { return null; }
+}
+
 function useGeolocation() {
-  const [location, setLocation] = useState(null);
-  const [status, setStatus] = useState("idle"); // idle | loading | granted | denied
+  const saved = loadGeo();
+  const [location, setLocation] = useState(saved);
+  const [status, setStatus] = useState(saved ? "granted" : "idle"); // idle | loading | granted | denied
 
   const request = useCallback(() => {
     if (!navigator.geolocation) { setStatus("denied"); return; }
     setStatus("loading");
     navigator.geolocation.getCurrentPosition(
-      pos => { setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setStatus("granted"); },
+      pos => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setLocation(loc); setStatus("granted");
+        try { localStorage.setItem(LS_GEO, JSON.stringify(loc)); } catch {}
+      },
       () => setStatus("denied"),
       { enableHighAccuracy: false, timeout: 10000 }
     );
   }, []);
 
-  const reset = useCallback(() => { setLocation(null); setStatus("idle"); }, []);
+  const reset = useCallback(() => {
+    setLocation(null); setStatus("idle");
+    try { localStorage.removeItem(LS_GEO); } catch {}
+  }, []);
 
   return { location, status, request, reset };
 }
@@ -741,15 +758,31 @@ export default function App() {
   const { visits, save: saveVisit, remove: removeVisit, isVisited } = useVisits();
   const geo = useGeolocation();
 
-  // Route planning state
-  const [routeMode, setRouteMode] = useState(false);
-  const [routeIds, setRouteIds] = useState(new Set());
+  // Route planning state (persisted in localStorage)
+  const [routeMode, setRouteMode] = useState(() => {
+    try { return localStorage.getItem("parques-route-mode") === "1"; } catch { return false; }
+  });
+  const [routeIds, setRouteIds] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("parques-route-ids") || "[]")); }
+    catch { return new Set(); }
+  });
   const [showRoute, setShowRoute] = useState(false);
 
-  const toggleRouteMode = useCallback(() => {
-    setRouteMode(prev => !prev);
-    if (routeMode) { setRouteIds(new Set()); }
+  useEffect(() => {
+    try { localStorage.setItem("parques-route-mode", routeMode ? "1" : "0"); } catch {}
   }, [routeMode]);
+
+  useEffect(() => {
+    try { localStorage.setItem("parques-route-ids", JSON.stringify([...routeIds])); } catch {}
+  }, [routeIds]);
+
+  const toggleRouteMode = useCallback(() => {
+    setRouteMode(prev => {
+      const next = !prev;
+      if (prev) setRouteIds(new Set());
+      return next;
+    });
+  }, []);
 
   const toggleRouteId = useCallback((id) => {
     setRouteIds(prev => {
