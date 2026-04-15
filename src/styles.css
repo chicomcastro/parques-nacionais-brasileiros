@@ -1,0 +1,228 @@
+/* ── Base ───────────────────────────────────────────── */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* Safe area for iOS notch */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --nav-h: 64px;
+}
+
+/* ── Animations ─────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.85); opacity: 0; }
+  60% { transform: scale(1.02); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+@keyframes splashOut {
+  0% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
+}
+
+@keyframes logoBreath {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+/* ── Splash screen ──────────────────────────────────── */
+.splash {
+  position: fixed; inset: 0; z-index: 2000;
+  background: linear-gradient(135deg, #14532d, #166534, #15803d);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  animation: splashOut 1.2s ease forwards;
+  animation-delay: 0.6s;
+}
+.splash-logo {
+  font-size: 72px;
+  animation: logoBreath 1.4s ease-in-out infinite;
+}
+.splash-title {
+  color: #fff; font-size: 18px; font-weight: 700;
+  margin-top: 12px; letter-spacing: -0.3px;
+  opacity: 0.95;
+}
+
+/* ── Animations for UI elements ─────────────────────── */
+.card-enter { animation: popIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.fade-in { animation: fadeIn 0.25s ease both; }
+.slide-down { animation: slideDown 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* ── Bottom nav ─────────────────────────────────────── */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 800;
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
+  display: none;
+  justify-content: space-around;
+  padding: 8px 4px calc(8px + var(--safe-bottom)) 4px;
+  box-shadow: 0 -4px 20px #0001;
+}
+
+.bottom-nav-btn {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  background: none; border: none;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 11px; font-weight: 600;
+  transition: color 0.15s, transform 0.15s;
+  border-radius: 12px;
+  min-width: 0;
+}
+
+.bottom-nav-btn:active { transform: scale(0.92); }
+
+.bottom-nav-btn.active {
+  color: #15803d;
+}
+
+.bottom-nav-icon {
+  font-size: 22px;
+  line-height: 1;
+  transition: transform 0.2s;
+}
+
+.bottom-nav-btn.active .bottom-nav-icon {
+  transform: translateY(-2px) scale(1.1);
+}
+
+.bottom-nav-badge {
+  position: absolute;
+  top: 4px;
+  margin-left: 16px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 8px;
+  min-width: 16px;
+  text-align: center;
+}
+
+/* Modal base animations */
+.modal-backdrop { animation: fadeIn 0.2s ease; }
+.modal-content-desktop { animation: popIn 0.25s cubic-bezier(0.22, 1, 0.36, 1); }
+.modal-content-mobile { animation: slideUp 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* Press effect for buttons */
+.btn-press { transition: transform 0.12s; }
+.btn-press:active { transform: scale(0.96); }
+
+/* ── Mobile layout (< 768px) ────────────────────────── */
+@media (max-width: 767px) {
+  .bottom-nav { display: flex; }
+
+  /* Give room for bottom nav */
+  .app-root { padding-bottom: calc(var(--nav-h) + var(--safe-bottom)); }
+
+  /* Compact header */
+  .app-header { padding: 20px 16px 16px !important; }
+  .app-header h1 { font-size: 19px !important; }
+  .app-header .subtitle { font-size: 12px !important; margin-bottom: 12px !important; }
+  .app-header .logo { font-size: 32px !important; margin-bottom: 4px !important; }
+
+  /* Status filter horizontal scroll */
+  .status-filters {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+    justify-content: flex-start !important;
+    flex-wrap: nowrap !important;
+  }
+  .status-filters::-webkit-scrollbar { display: none; }
+  .status-filters button { flex-shrink: 0; font-size: 12px !important; padding: 5px 12px !important; }
+
+  /* Search bar compact */
+  .search-bar { padding: 10px 16px !important; gap: 8px !important; }
+  .search-bar input { padding: 7px 12px !important; font-size: 13px !important; }
+
+  /* Grid 2 columns, tight spacing */
+  .parks-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+  .parks-container { padding: 12px !important; }
+
+  /* Smaller card content */
+  .parks-grid .card-image { height: 120px !important; }
+  .parks-grid .card-body { padding: 8px 10px 10px !important; }
+  .parks-grid .card-title { font-size: 12px !important; }
+  .parks-grid .card-meta { font-size: 10px !important; }
+  .parks-grid .card-state { font-size: 10px !important; padding: 1px 6px !important; }
+
+  /* Mobile modal as bottom sheet */
+  .modal-wrap-mobile {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .modal-wrap-mobile .modal-card {
+    max-width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    max-height: 92vh;
+    width: 100%;
+  }
+  .modal-wrap-mobile .modal-hero {
+    height: 220px !important;
+  }
+  .modal-wrap-mobile .modal-card::before {
+    content: "";
+    position: absolute;
+    top: 8px; left: 50%;
+    transform: translateX(-50%);
+    width: 40px; height: 4px;
+    background: #fff9;
+    border-radius: 2px;
+    z-index: 10;
+  }
+
+  /* Hide desktop nav pills on mobile header (they move to bottom nav) */
+  .header-nav-pills { display: none !important; }
+
+  /* Route bar higher to not overlap with bottom nav */
+  .route-bottom-bar { bottom: calc(var(--nav-h) + var(--safe-bottom)) !important; }
+
+  /* Hide "montar roteiro" button from search row (moved to bottom nav) */
+  .toggle-route-btn { display: none !important; }
+
+  /* Pagination smaller */
+  .pagination button { width: 32px !important; height: 32px !important; font-size: 13px !important; }
+}
+
+/* ── Desktop ───────────────────────────────────────── */
+@media (min-width: 768px) {
+  .parks-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+  }
+}

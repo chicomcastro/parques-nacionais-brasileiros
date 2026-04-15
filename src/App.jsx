@@ -346,8 +346,8 @@ function ParkCard({ park, onClick, isFav, onToggleFav, isVisited, routeMode, rou
   };
 
   return (
-    <div onClick={handleClick}
-      style={{ borderRadius: 16, overflow: "hidden", cursor: "pointer", background: "#fff",
+    <div onClick={handleClick} className="card-enter btn-press"
+      style={{ borderRadius: 14, overflow: "hidden", cursor: "pointer", background: "#fff",
         boxShadow: routeSelected ? "0 0 0 3px #15803d" : "0 2px 12px #0001",
         transition: "transform .18s,box-shadow .18s", display: "flex", flexDirection: "column",
         position: "relative" }}
@@ -361,11 +361,11 @@ function ParkCard({ park, onClick, isFav, onToggleFav, isVisited, routeMode, rou
           {routeSelected && <span style={{ color: "#fff", fontSize: 14, fontWeight: 800, lineHeight: 1 }}>✓</span>}
         </div>
       )}
-      <div style={{ height: 160, background: "#e2e8f0", position: "relative", overflow: "hidden" }}>
+      <div className="card-image" style={{ height: 160, background: "#e2e8f0", position: "relative", overflow: "hidden" }}>
         {!done && <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ width: 28, height: 28, border: "3px solid #cbd5e1", borderTopColor: "#64748b", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
         </div>}
-        {done && <Carousel images={images} height={160} alt={park.name} />}
+        {done && <Carousel images={images} height="100%" alt={park.name} />}
         <div style={{ position: "absolute", top: 8, right: 8, background: meta.bg, color: meta.color,
           fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 20, border: `1px solid ${meta.color}44`, zIndex: 3 }}>
           {meta.icon} {meta.label}
@@ -380,14 +380,14 @@ function ParkCard({ park, onClick, isFav, onToggleFav, isVisited, routeMode, rou
           </div>
         )}
       </div>
-      <div style={{ padding: "12px 14px 14px" }}>
+      <div className="card-body" style={{ padding: "12px 14px 14px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, marginBottom: 6 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "#1e293b", lineHeight: 1.3 }}>{park.name}</div>
+          <div className="card-title" style={{ fontWeight: 700, fontSize: 14, color: "#1e293b", lineHeight: 1.3 }}>{park.name}</div>
           {!routeMode && <FavButton active={isFav} size={18} onClick={e => { e.stopPropagation(); onToggleFav(park.id); }} />}
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 4 }}>
-          <span style={{ fontSize: 12, color: "#64748b", background: "#f1f5f9", padding: "2px 8px", borderRadius: 12 }}>{park.state}</span>
-          <span style={{ fontSize: 12, color: "#475569" }}>{park.access} · <b>{park.dist.toLocaleString("pt-BR")} km</b></span>
+          <span className="card-state" style={{ fontSize: 12, color: "#64748b", background: "#f1f5f9", padding: "2px 8px", borderRadius: 12 }}>{park.state}</span>
+          <span className="card-meta" style={{ fontSize: 12, color: "#475569" }}>{park.access} · <b>{park.dist.toLocaleString("pt-BR")} km</b></span>
         </div>
       </div>
     </div>
@@ -622,10 +622,10 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
   const imgs = park.images || [];
   return (
     <>
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, overflow: "hidden", maxWidth: 560, width: "100%", boxShadow: "0 20px 60px #0006", maxHeight: "90vh", overflowY: "auto" }}>
-        <div style={{ height: 280, background: "#e2e8f0", position: "relative" }}>
-          <Carousel images={imgs} height={280} alt={park.name}
+    <div onClick={onClose} className="modal-backdrop modal-wrap-mobile" style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} className="modal-card modal-content-mobile" style={{ background: "#fff", borderRadius: 20, overflow: "hidden", maxWidth: 560, width: "100%", boxShadow: "0 20px 60px #0006", maxHeight: "90vh", overflowY: "auto", position: "relative" }}>
+        <div className="modal-hero" style={{ height: 280, background: "#e2e8f0", position: "relative" }}>
+          <Carousel images={imgs} height="100%" alt={park.name}
             onClickImage={idx => { if (imgs.length > 0) { setLightboxIdx(idx); track("lightbox_open", { park_id: park.id }); } }} />
           <button onClick={onClose} style={{ position: "absolute", top: 12, right: 12, background: "#000a", color: "#fff", border: "none",
             borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3 }}>×</button>
@@ -748,6 +748,27 @@ function PassaporteView({ visits, parks, onSelectPark }) {
   );
 }
 
+function BottomNav({ view, filter, routeMode, favCount, visitCount, onNavigate }) {
+  const tabs = [
+    { key: "explorar", icon: "🏞️", label: "Explorar", active: view === "grid" && filter === "todos" && !routeMode },
+    { key: "favoritos", icon: "❤️", label: "Favoritos", active: view === "grid" && filter === "favoritos" && !routeMode, badge: favCount },
+    { key: "passaporte", icon: "🛂", label: "Passaporte", active: view === "passaporte", badge: visitCount },
+    { key: "roteiro", icon: "🗺️", label: "Roteiro", active: routeMode },
+  ];
+  return (
+    <nav className="bottom-nav">
+      {tabs.map(t => (
+        <button key={t.key} className={`bottom-nav-btn${t.active ? " active" : ""}`}
+          onClick={() => onNavigate(t.key)}>
+          <span className="bottom-nav-icon">{t.icon}</span>
+          <span>{t.label}</span>
+          {t.badge > 0 && <span className="bottom-nav-badge">{t.badge}</span>}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
 export default function App() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("todos");
@@ -826,18 +847,16 @@ export default function App() {
   [parksWithDist, routeIds]);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f0fdf4", fontFamily: "system-ui,sans-serif" }}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-
-      <div style={{ background: "linear-gradient(135deg,#14532d,#166534,#15803d)", color: "#fff", padding: "32px 24px 24px", textAlign: "center" }}>
-        <div style={{ fontSize: 40, marginBottom: 8 }}>🌳</div>
-        <h1 style={{ margin: "0 0 4px", fontSize: 24, fontWeight: 800, letterSpacing: -.5 }}>Parques Nacionais do Brasil</h1>
-        <p style={{ margin: "0 0 12px", opacity: .8, fontSize: 14 }}>
+    <div className="app-root" style={{ minHeight: "100vh", background: "#f0fdf4" }}>
+      <div className="app-header" style={{ background: "linear-gradient(135deg,#14532d,#166534,#15803d)", color: "#fff", padding: "32px 24px 24px", textAlign: "center", fontSize: 24 }}>
+        <div className="logo" style={{ fontSize: 40, marginBottom: 8 }}>🌳</div>
+        <h1 style={{ margin: "0 0 4px", fontWeight: 800, letterSpacing: -.5 }}>Parques Nacionais do Brasil</h1>
+        <p className="subtitle" style={{ margin: "0 0 12px", opacity: .8, fontSize: 14 }}>
           74 parques · ordenados por distância de {usingGeo ? "você" : "SP"}
         </p>
         <div style={{ marginBottom: 16 }}>
           {geo.status === "idle" && (
-            <button onClick={() => { geo.request(); track("geolocation_request"); }} style={{
+            <button className="btn-press" onClick={() => { geo.request(); track("geolocation_request"); }} style={{
               background: "#ffffff22", border: "1px solid #fff6", color: "#fff",
               padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
               📍 Usar minha localização
@@ -847,7 +866,7 @@ export default function App() {
             <span style={{ fontSize: 12, opacity: .8 }}>📍 Obtendo localização...</span>
           )}
           {geo.status === "granted" && (
-            <button onClick={geo.reset} style={{
+            <button className="btn-press" onClick={geo.reset} style={{
               background: "#ffffff22", border: "1px solid #fff6", color: "#fff",
               padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
               📍 Usando sua localização · Voltar para SP
@@ -857,29 +876,35 @@ export default function App() {
             <span style={{ fontSize: 12, opacity: .7 }}>📍 Localização negada · usando SP</span>
           )}
         </div>
-        <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
-          {[["todos", "Todos", 74], ["favoritos", "Favoritos", favs.size], ["aberto", "Abertos", counts.aberto], ["limitado", "Limitados", counts.limitado], ["fechado", "Fechados", counts.fechado]].map(([k, l, cnt]) => (
-            <button key={k} onClick={() => { setFilter(k); setPage(1); setView("grid"); track("filter_change", { filter: k }); }} style={{
+        <div className="status-filters" style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
+          {[["todos", "Todos", 74], ["aberto", "Abertos", counts.aberto], ["limitado", "Limitados", counts.limitado], ["fechado", "Fechados", counts.fechado]].map(([k, l, cnt]) => (
+            <button className="btn-press" key={k} onClick={() => { setFilter(k); setPage(1); setView("grid"); track("filter_change", { filter: k }); }} style={{
               border: "2px solid #fff", background: filter === k && view === "grid" ? "#fff" : "transparent",
               color: filter === k && view === "grid" ? "#14532d" : "#fff", padding: "6px 16px", borderRadius: 20,
               cursor: "pointer", fontWeight: 700, fontSize: 13, transition: "all .15s" }}>
               {l} <span style={{ opacity: .7 }}>({cnt})</span>
             </button>
           ))}
-          <button onClick={() => setView(v => v === "passaporte" ? "grid" : "passaporte")} style={{
+          <button className="btn-press header-nav-pills" onClick={() => { setFilter("favoritos"); setPage(1); setView("grid"); track("filter_change", { filter: "favoritos" }); }} style={{
+            border: "2px solid #fff", background: filter === "favoritos" && view === "grid" ? "#fff" : "transparent",
+            color: filter === "favoritos" && view === "grid" ? "#14532d" : "#fff", padding: "6px 16px", borderRadius: 20,
+            cursor: "pointer", fontWeight: 700, fontSize: 13, transition: "all .15s" }}>
+            Favoritos <span style={{ opacity: .7 }}>({favs.size})</span>
+          </button>
+          <button className="btn-press header-nav-pills" onClick={() => setView(v => v === "passaporte" ? "grid" : "passaporte")} style={{
             border: "2px solid #fbbf24", background: view === "passaporte" ? "#fbbf24" : "transparent",
             color: view === "passaporte" ? "#14532d" : "#fbbf24", padding: "6px 16px", borderRadius: 20,
             cursor: "pointer", fontWeight: 700, fontSize: 13, transition: "all .15s" }}>
-            🛂 Passaporte <span style={{ opacity: .7 }}>({Object.keys(visits).length} / 74)</span>
+            🛂 Passaporte <span style={{ opacity: .7 }}>({Object.keys(visits).length}/74)</span>
           </button>
         </div>
       </div>
 
-      <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "12px 24px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      <div className="search-bar" style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "12px 24px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
           placeholder="🔍  Buscar por nome ou estado..."
-          style={{ flex: 1, minWidth: 200, padding: "8px 14px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, outline: "none" }} />
-        <button onClick={toggleRouteMode} style={{
+          style={{ flex: 1, minWidth: 120, padding: "8px 14px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, outline: "none" }} />
+        <button className="btn-press toggle-route-btn" onClick={toggleRouteMode} style={{
           padding: "8px 16px", borderRadius: 20, border: "none", cursor: "pointer",
           fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", transition: "all .15s",
           background: routeMode ? "linear-gradient(135deg,#14532d,#15803d)" : "#f0fdf4",
@@ -897,16 +922,16 @@ export default function App() {
           setSelected({ ...p, images: imgCache[p.slug] || [], wikiUrl });
         }} />
       ) : (
-        <div style={{ padding: "24px", maxWidth: 1200, margin: "0 auto" }}>
+        <div className="parks-container" style={{ padding: "24px", maxWidth: 1200, margin: "0 auto" }}>
           {visible.length === 0
             ? <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}><div style={{ fontSize: 48 }}>🌿</div><p>Nenhum parque encontrado</p></div>
-            : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 16 }}>
+            : <div className="parks-grid" style={{ display: "grid" }}>
                 {visible.map(p => <ParkCard key={p.id} park={p} onClick={p => { track("park_open", { park_id: p.id, park_name: p.name }); setSelected(p); }} isFav={favs.has(p.id)} onToggleFav={toggleFav} isVisited={isVisited(p.id)}
                   routeMode={routeMode} routeSelected={routeIds.has(p.id)} onRouteToggle={toggleRouteId} />)}
               </div>}
 
           {totalPages > 1 && (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 32, flexWrap: "wrap" }}>
+            <div className="pagination" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 32, flexWrap: "wrap" }}>
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
                 style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: page === 1 ? "default" : "pointer", opacity: page === 1 ? .4 : 1, fontWeight: 600 }}>← Anterior</button>
               {Array.from({ length: totalPages }, (_, i) => i + 1)
@@ -930,7 +955,7 @@ export default function App() {
         visit={visits[selected.id] || null} onSaveVisit={saveVisit} onRemoveVisit={removeVisit} />}
 
       {routeMode && routeIds.size > 0 && (
-        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 900,
+        <div className="route-bottom-bar" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 900,
           background: "linear-gradient(135deg,#14532d,#166534,#15803d)",
           padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between",
           boxShadow: "0 -4px 20px #0003" }}>
@@ -969,6 +994,17 @@ export default function App() {
         marginBottom: routeMode && routeIds.size > 0 ? 60 : 0 }}>
         Atualizado em 07/04/2026 · Dados: Wikipedia
       </footer>
+
+      <BottomNav
+        view={view} filter={filter} routeMode={routeMode}
+        favCount={favs.size} visitCount={Object.keys(visits).length}
+        onNavigate={key => {
+          if (key === "explorar") { setView("grid"); setFilter("todos"); setPage(1); if (routeMode) toggleRouteMode(); }
+          else if (key === "favoritos") { setView("grid"); setFilter("favoritos"); setPage(1); if (routeMode) toggleRouteMode(); track("filter_change", { filter: "favoritos" }); }
+          else if (key === "passaporte") { setView("passaporte"); if (routeMode) toggleRouteMode(); }
+          else if (key === "roteiro") { setView("grid"); toggleRouteMode(); }
+        }}
+      />
     </div>
   );
 }
