@@ -627,10 +627,10 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
         <div className="modal-hero" style={{ height: 280, background: "#e2e8f0", position: "relative" }}>
           <Carousel images={imgs} height="100%" alt={park.name}
             onClickImage={idx => { if (imgs.length > 0) { setLightboxIdx(idx); track("lightbox_open", { park_id: park.id }); } }} />
-          <button onClick={onClose} style={{ position: "absolute", top: 12, right: 12, background: "#000a", color: "#fff", border: "none",
+          <button className="modal-close" onClick={onClose} style={{ position: "absolute", top: 12, right: 12, background: "#000a", color: "#fff", border: "none",
             borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3 }}>×</button>
         </div>
-        <div style={{ padding: 24 }}>
+        <div className="modal-body" style={{ padding: 24 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <h2 style={{ margin: 0, fontSize: 20, color: "#1e293b", lineHeight: 1.3 }}>#{park.id} — {park.name}</h2>
@@ -639,13 +639,17 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
             <span style={{ flexShrink: 0, background: meta.bg, color: meta.color, fontSize: 12, fontWeight: 700,
               padding: "4px 10px", borderRadius: 20, border: `1px solid ${meta.color}44` }}>{meta.icon} {meta.label}</span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            {[["🗺️ Estado", park.state], ["📏 Distância", `${park.dist.toLocaleString("pt-BR")} km`], ["🚌 Acesso", park.access], ["🎫 Entrada", park.entrada], ["🕐 Horário", park.horario], ["📅 Melhor época", park.melhorEpoca], ["🥾 Trilhas", park.trilhas?.length > 0 ? park.trilhas.join(", ") : "Sem trilhas cadastradas"]].map(([k, v]) => (
+          <div className="modal-info-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {[["🗺️ Estado", park.state], ["📏 Distância", `${park.dist.toLocaleString("pt-BR")} km`], ["🚌 Acesso", park.access], ["🎫 Entrada", park.entrada], ["🕐 Horário", park.horario], ["📅 Melhor época", park.melhorEpoca]].map(([k, v]) => (
               <div key={k} style={{ background: "#f8fafc", borderRadius: 12, padding: "10px 14px" }}>
                 <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>{k}</div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#334155" }}>{v}</div>
               </div>
             ))}
+            <div style={{ background: "#f8fafc", borderRadius: 12, padding: "10px 14px", gridColumn: "1 / -1" }}>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>🥾 Trilhas</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#334155" }}>{park.trilhas?.length > 0 ? park.trilhas.join(", ") : "Sem trilhas cadastradas"}</div>
+            </div>
           </div>
           <a href={park.wikiUrl} target="_blank" rel="noreferrer"
             style={{ display: "block", marginTop: 16, textAlign: "center", background: "#0f172a", color: "#fff",
