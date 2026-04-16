@@ -868,6 +868,7 @@ export default function App() {
           <SavedRoutes routes={savedRoutes}
             onLoad={(r) => {
               setRouteIds(new Set(r.parkIds));
+              setViewingSavedRoute(r);
               setShowRoute(true);
             }}
             onDelete={(id) => { deleteRouteDB(id).then(() => setSavedRoutes(prev => prev.filter(r => r.id !== id))); }}
@@ -937,8 +938,9 @@ export default function App() {
           startLabel={usingGeo ? "Sua localização" : "São Paulo"}
           startLat={ref.lat}
           startLng={ref.lng}
-          onClose={() => { setShowRoute(false); refreshSavedRoutes(); }}
-          onClear={() => { clearRoute(); setShowRoute(false); refreshSavedRoutes(); }}
+          editingRoute={viewingSavedRoute}
+          onClose={() => { setShowRoute(false); setViewingSavedRoute(null); refreshSavedRoutes(); }}
+          onClear={() => { clearRoute(); setShowRoute(false); setViewingSavedRoute(null); refreshSavedRoutes(); }}
           onLoadRoute={(ids) => { setRouteIds(new Set(ids)); }}
         />
       )}

@@ -105,9 +105,10 @@ export function SavedRoutes({ routes, onLoad, onDelete }) {
   );
 }
 
-export default function RouteModal({ parks, startLabel, startLat, startLng, onClose, onClear, onLoadRoute }) {
+export default function RouteModal({ parks, startLabel, startLat, startLng, onClose, onClear, onLoadRoute, editingRoute }) {
   const [tab, setTab] = useState("mapa");
-  const [routeName, setRouteName] = useState("");
+  const [routeName, setRouteName] = useState(editingRoute?.name || "");
+  const [routeId, setRouteId] = useState(editingRoute?.id || null);
   const [saveMsg, setSaveMsg] = useState("");
   const [closing, setClosing] = useState(false);
 
@@ -125,8 +126,9 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
 
   const handleSave = useCallback(() => {
     const name = routeName.trim() || `Roteiro ${new Date().toLocaleDateString("pt-BR")}`;
+    const id = routeId || Date.now().toString();
     const route = {
-      id: Date.now().toString(),
+      id,
       name,
       parkIds: ordered.map(p => p.id),
       totalKm: total,
@@ -137,10 +139,11 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
       savedAt: Date.now(),
     };
     saveRoute(route).then(() => {
-      setSaveMsg("Roteiro salvo!");
+      setRouteId(id);
+      setSaveMsg(routeId ? "Roteiro atualizado!" : "Roteiro salvo!");
       setTimeout(() => setSaveMsg(""), 2000);
     });
-  }, [ordered, total, days, routeName, startLabel, startLat, startLng]);
+  }, [ordered, total, days, routeName, routeId, startLabel, startLat, startLng]);
 
   const handleShare = useCallback(async () => {
     const text = `🌳 Meu roteiro de parques nacionais!\n\n${ordered.map((p, i) => `${i + 1}. ${p.name} (${p.state})`).join("\n")}\n\n📏 ${total.toLocaleString("pt-BR")} km · ${days} dias estimados\n\n🔗 https://chicomcastro.github.io/parques-nacionais-brasileiros/`;
@@ -184,8 +187,8 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
               display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
-            {tabBtn("rota", "Rota", "📋")}
             {tabBtn("mapa", "Mapa", "🗺️")}
+            {tabBtn("rota", "Rota", "📋")}
           </div>
         </div>
 
