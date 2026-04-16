@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { saveRoute, getAllRoutes, deleteRoute } from "./db.mjs";
+import { saveRoute } from "./db.mjs";
 import "leaflet/dist/leaflet.css";
 
 function haversine(lat1, lng1, lat2, lng2) {
@@ -105,11 +105,16 @@ export function SavedRoutes({ routes, onLoad, onDelete }) {
   );
 }
 
-export default function RouteModal({ parks, startLabel, startLat, startLng, onClose, onClear, onLoadRoute, defaultTab = "rota" }) {
-  const [tab, setTab] = useState(defaultTab);
+export default function RouteModal({ parks, startLabel, startLat, startLng, onClose, onClear, onLoadRoute }) {
+  const [tab, setTab] = useState("mapa");
   const [routeName, setRouteName] = useState("");
-  const [savedRoutes, setSavedRoutes] = useState([]);
   const [saveMsg, setSaveMsg] = useState("");
+  const [closing, setClosing] = useState(false);
+
+  const handleClose = useCallback(() => {
+    setClosing(true);
+    setTimeout(onClose, 250);
+  }, [onClose]);
 
   const { ordered, legs, total } = useMemo(
     () => optimizeRoute(parks, startLat, startLng),
@@ -117,8 +122,6 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
   );
 
   const days = useMemo(() => estimateDays(total, ordered.length), [total, ordered.length]);
-
-  useEffect(() => { getAllRoutes().then(setSavedRoutes).catch(() => {}); }, []);
 
   const handleSave = useCallback(() => {
     const name = routeName.trim() || `Roteiro ${new Date().toLocaleDateString("pt-BR")}`;
@@ -134,20 +137,10 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
       savedAt: Date.now(),
     };
     saveRoute(route).then(() => {
-      setSavedRoutes(prev => [...prev, route]);
       setSaveMsg("Roteiro salvo!");
       setTimeout(() => setSaveMsg(""), 2000);
     });
   }, [ordered, total, days, routeName, startLabel, startLat, startLng]);
-
-  const handleDelete = useCallback((id) => {
-    deleteRoute(id).then(() => setSavedRoutes(prev => prev.filter(r => r.id !== id)));
-  }, []);
-
-  const handleLoad = useCallback((route) => {
-    if (onLoadRoute) onLoadRoute(route.parkIds);
-    setTab("rota");
-  }, [onLoadRoute]);
 
   const handleShare = useCallback(async () => {
     const text = `🌳 Meu roteiro de parques nacionais!\n\n${ordered.map((p, i) => `${i + 1}. ${p.name} (${p.state})`).join("\n")}\n\n📏 ${total.toLocaleString("pt-BR")} km · ${days} dias estimados\n\n🔗 https://chicomcastro.github.io/parques-nacionais-brasileiros/`;
@@ -171,9 +164,9 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
   );
 
   return (
-    <div onClick={onClose} className="modal-backdrop modal-wrap-mobile" style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 999,
+    <div onClick={handleClose} className={`modal-backdrop modal-wrap-mobile${closing ? " modal-closing" : ""}`} style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 999,
       display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} className="modal-card modal-content-mobile" style={{ background: "#fff", borderRadius: 20,
+      <div onClick={e => e.stopPropagation()} className={`modal-card modal-content-mobile${closing ? " modal-card-closing" : ""}`} style={{ background: "#fff", borderRadius: 20,
         overflow: "hidden", maxWidth: 560, width: "100%", maxHeight: "92vh",
         boxShadow: "0 20px 60px #0006", display: "flex", flexDirection: "column", position: "relative" }}>
 
@@ -186,14 +179,13 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
                 {ordered.length} parques · {total.toLocaleString("pt-BR")} km · ~{days} dia{days !== 1 ? "s" : ""}
               </div>
             </div>
-            <button className="btn-press" onClick={onClose} style={{ background: "#ffffff22", color: "#fff", border: "none",
+            <button className="btn-press" onClick={handleClose} style={{ background: "#ffffff22", color: "#fff", border: "none",
               borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18,
               display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
-            {tabBtn("rota", "Rota", "📋")}
             {tabBtn("mapa", "Mapa", "🗺️")}
-            {tabBtn("salvos", "Salvos", "💾")}
+            {tabBtn("rota", "Rota", "📋")}
           </div>
         </div>
 
@@ -245,11 +237,6 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
             </div>
           )}
 
-          {tab === "salvos" && (
-            <div style={{ padding: "16px 20px" }}>
-              <SavedRoutes routes={savedRoutes} onLoad={handleLoad} onDelete={handleDelete} />
-            </div>
-          )}
         </div>
 
         <div style={{ padding: "12px 20px 16px", borderTop: "1px solid #e2e8f0" }}>
@@ -268,7 +255,7 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
               flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #e2e8f0",
               background: "#fff", color: "#1e293b", cursor: "pointer", fontSize: 13, fontWeight: 600
             }}>📤 Compartilhar</button>
-            <button className="btn-press" onClick={() => { onClear(); onClose(); }} style={{
+            <button className="btn-press" onClick={() => { onClear(); handleClose(); }} style={{
               flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #fee2e2",
               background: "#fff", color: "#ef4444", cursor: "pointer", fontSize: 13, fontWeight: 600
             }}>🗑️ Limpar</button>

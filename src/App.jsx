@@ -527,15 +527,22 @@ function VisitSection({ parkId, visit, onSave, onRemove }) {
 function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemoveVisit }) {
   const meta = STATUS[park.status];
   const [lightboxIdx, setLightboxIdx] = useState(null);
+  const [closing, setClosing] = useState(false);
   const imgs = park.images || [];
+
+  const handleClose = useCallback(() => {
+    setClosing(true);
+    setTimeout(onClose, 250);
+  }, [onClose]);
+
   return (
     <>
-    <div onClick={onClose} className="modal-backdrop modal-wrap-mobile" style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} className="modal-card modal-content-mobile" style={{ background: "#fff", borderRadius: 20, overflow: "hidden", maxWidth: 560, width: "100%", boxShadow: "0 20px 60px #0006", maxHeight: "90vh", overflowY: "auto", position: "relative" }}>
+    <div onClick={handleClose} className={`modal-backdrop modal-wrap-mobile${closing ? " modal-closing" : ""}`} style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} className={`modal-card modal-content-mobile${closing ? " modal-card-closing" : ""}`} style={{ background: "#fff", borderRadius: 20, overflow: "hidden", maxWidth: 560, width: "100%", boxShadow: "0 20px 60px #0006", maxHeight: "90vh", overflowY: "auto", position: "relative" }}>
         <div className="modal-hero" style={{ height: 280, background: "#e2e8f0", position: "relative" }}>
           <Carousel images={imgs} height="100%" alt={park.name}
             onClickImage={idx => { if (imgs.length > 0) { setLightboxIdx(idx); track("lightbox_open", { park_id: park.id }); } }} />
-          <button className="modal-close" onClick={onClose} style={{ position: "absolute", top: 12, right: 12, background: "#000a", color: "#fff", border: "none",
+          <button className="modal-close" onClick={handleClose} style={{ position: "absolute", top: 12, right: 12, background: "#000a", color: "#fff", border: "none",
             borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3 }}>×</button>
         </div>
         <div className="modal-body" style={{ padding: 24 }}>
@@ -700,7 +707,6 @@ export default function App() {
     catch { return new Set(); }
   });
   const [showRoute, setShowRoute] = useState(false);
-  const [showRouteDefaultTab, setShowRouteDefaultTab] = useState("rota");
   const [savedRoutes, setSavedRoutes] = useState([]);
   const [viewingSavedRoute, setViewingSavedRoute] = useState(null);
 
@@ -862,7 +868,6 @@ export default function App() {
           <SavedRoutes routes={savedRoutes}
             onLoad={(r) => {
               setRouteIds(new Set(r.parkIds));
-              setShowRouteDefaultTab("mapa");
               setShowRoute(true);
             }}
             onDelete={(id) => { deleteRouteDB(id).then(() => setSavedRoutes(prev => prev.filter(r => r.id !== id))); }}
@@ -932,9 +937,8 @@ export default function App() {
           startLabel={usingGeo ? "Sua localização" : "São Paulo"}
           startLat={ref.lat}
           startLng={ref.lng}
-          defaultTab={showRouteDefaultTab}
-          onClose={() => { setShowRoute(false); setShowRouteDefaultTab("rota"); refreshSavedRoutes(); }}
-          onClear={() => { clearRoute(); setShowRoute(false); setShowRouteDefaultTab("rota"); refreshSavedRoutes(); }}
+          onClose={() => { setShowRoute(false); refreshSavedRoutes(); }}
+          onClear={() => { clearRoute(); setShowRoute(false); refreshSavedRoutes(); }}
           onLoadRoute={(ids) => { setRouteIds(new Set(ids)); }}
         />
       )}

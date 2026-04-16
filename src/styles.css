@@ -134,6 +134,12 @@ body {
 .modal-content-desktop { animation: popIn 0.25s cubic-bezier(0.22, 1, 0.36, 1); }
 .modal-content-mobile { animation: slideUp 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
 
+/* Modal closing animations */
+@keyframes fadeOut { to { opacity: 0; } }
+@keyframes slideDownOut { to { transform: translateY(100%); } }
+.modal-closing { animation: fadeOut 0.25s ease forwards; }
+.modal-card-closing { animation: slideDownOut 0.25s cubic-bezier(0.55, 0, 1, 0.45) forwards; }
+
 /* Press effect for buttons */
 .btn-press { transition: transform 0.12s; }
 .btn-press:active { transform: scale(0.96); }
