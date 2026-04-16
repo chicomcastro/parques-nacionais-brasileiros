@@ -669,17 +669,17 @@ function PassaporteView({ visits, parks, onSelectPark }) {
 
 function BottomNav({ view, filter, routeMode, favCount, visitCount, onNavigate }) {
   const tabs = [
-    { key: "explorar", icon: "🏞️", label: "Explorar", active: view === "grid" && filter === "todos" && !routeMode },
-    { key: "favoritos", icon: "❤️", label: "Favoritos", active: view === "grid" && filter === "favoritos" && !routeMode, badge: favCount },
-    { key: "passaporte", icon: "🛂", label: "Passaporte", active: view === "passaporte", badge: visitCount },
-    { key: "roteiro", icon: "🗺️", label: "Roteiro", active: view === "roteiros" || routeMode },
+    { key: "explorar", icon: "explore", label: "Explorar", active: view === "grid" && filter !== "favoritos" && !routeMode },
+    { key: "favoritos", icon: "favorite", label: "Favoritos", active: view === "grid" && filter === "favoritos" && !routeMode, badge: favCount },
+    { key: "passaporte", icon: "badge", label: "Passaporte", active: view === "passaporte", badge: visitCount },
+    { key: "roteiro", icon: "map", label: "Roteiro", active: view === "roteiros" || routeMode },
   ];
   return (
     <nav className="bottom-nav">
       {tabs.map(t => (
         <button key={t.key} className={`bottom-nav-btn${t.active ? " active" : ""}`}
           onClick={() => onNavigate(t.key)}>
-          <span className="bottom-nav-icon">{t.icon}</span>
+          <span className="material-icons-round bottom-nav-icon">{t.icon}</span>
           <span>{t.label}</span>
           {t.badge > 0 && <span className="bottom-nav-badge">{t.badge}</span>}
         </button>
@@ -688,15 +688,32 @@ function BottomNav({ view, filter, routeMode, favCount, visitCount, onNavigate }
   );
 }
 
+function getUrlParams() {
+  const p = new URLSearchParams(window.location.search);
+  return { view: p.get("view") || "grid", filter: p.get("filter") || "todos", page: parseInt(p.get("page")) || 1 };
+}
+
+function setUrlParams(params) {
+  const p = new URLSearchParams();
+  if (params.view && params.view !== "grid") p.set("view", params.view);
+  if (params.filter && params.filter !== "todos") p.set("filter", params.filter);
+  if (params.page && params.page > 1) p.set("page", String(params.page));
+  const qs = p.toString();
+  window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+}
+
 export default function App() {
+  const initial = getUrlParams();
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("todos");
-  const [page, setPage] = useState(1);
+  const [filter, setFilter] = useState(initial.filter);
+  const [page, setPage] = useState(initial.page);
   const [selected, setSelected] = useState(null);
-  const [view, setView] = useState("grid"); // "grid" | "passaporte" | "roteiros"
+  const [view, setView] = useState(initial.view);
   const { favs, toggle: toggleFav } = useFavorites();
   const { visits, save: saveVisit, remove: removeVisit, isVisited } = useVisits();
   const geo = useGeolocation();
+
+  useEffect(() => { setUrlParams({ view, filter, page }); }, [view, filter, page]);
 
   // Route planning state (persisted in localStorage)
   const [routeMode, setRouteMode] = useState(() => {
@@ -941,7 +958,6 @@ export default function App() {
           editingRoute={viewingSavedRoute}
           onClose={() => { setShowRoute(false); setViewingSavedRoute(null); refreshSavedRoutes(); }}
           onClear={() => { clearRoute(); setShowRoute(false); setViewingSavedRoute(null); refreshSavedRoutes(); }}
-          onLoadRoute={(ids) => { setRouteIds(new Set(ids)); }}
         />
       )}
 
