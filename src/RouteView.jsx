@@ -184,8 +184,8 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
               display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
-            {tabBtn("mapa", "Mapa", "🗺️")}
             {tabBtn("rota", "Rota", "📋")}
+            {tabBtn("mapa", "Mapa", "🗺️")}
           </div>
         </div>
 
@@ -255,7 +255,7 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
               flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #e2e8f0",
               background: "#fff", color: "#1e293b", cursor: "pointer", fontSize: 13, fontWeight: 600
             }}>📤 Compartilhar</button>
-            <button className="btn-press" onClick={() => { onClear(); handleClose(); }} style={{
+            <button className="btn-press" onClick={() => { setClosing(true); setTimeout(() => onClear(), 250); }} style={{
               flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #fee2e2",
               background: "#fff", color: "#ef4444", cursor: "pointer", fontSize: 13, fontWeight: 600
             }}>🗑️ Limpar</button>
