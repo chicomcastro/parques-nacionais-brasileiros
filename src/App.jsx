@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { PARKS, SAO_PAULO } from "./parks-data.mjs";
 import { track } from "./analytics.mjs";
 import { useVisits } from "./useVisits.js";
+import RouteModal from "./RouteView.jsx";
 
-// ── Route planning helpers ──────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────
 
 function haversine(lat1, lng1, lat2, lng2) {
   const R = 6371;
@@ -12,115 +13,6 @@ function haversine(lat1, lng1, lat2, lng2) {
   const dLng = toRad(lng2 - lng1);
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function optimizeRoute(parks, startLat, startLng) {
-  if (parks.length === 0) return { ordered: [], legs: [], total: 0 };
-  const remaining = [...parks];
-  const ordered = [];
-  const legs = [];
-  let curLat = startLat;
-  let curLng = startLng;
-  let total = 0;
-
-  while (remaining.length > 0) {
-    let bestIdx = 0;
-    let bestDist = Infinity;
-    for (let i = 0; i < remaining.length; i++) {
-      const d = haversine(curLat, curLng, remaining[i].lat, remaining[i].lng);
-      if (d < bestDist) { bestDist = d; bestIdx = i; }
-    }
-    const pick = remaining.splice(bestIdx, 1)[0];
-    ordered.push(pick);
-    legs.push(Math.round(bestDist));
-    total += bestDist;
-    curLat = pick.lat;
-    curLng = pick.lng;
-  }
-
-  return { ordered, legs, total: Math.round(total) };
-}
-
-function RouteModal({ parks, startLabel, startLat, startLng, onClose, onClear }) {
-  const { ordered, legs, total } = useMemo(
-    () => optimizeRoute(parks, startLat, startLng),
-    [parks, startLat, startLng]
-  );
-
-  return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 999,
-      display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20,
-        overflow: "hidden", maxWidth: 560, width: "100%", maxHeight: "85vh",
-        boxShadow: "0 20px 60px #0006", display: "flex", flexDirection: "column" }}>
-        {/* Header */}
-        <div style={{ background: "linear-gradient(135deg,#14532d,#166534,#15803d)", color: "#fff",
-          padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 800 }}>🗺️ Seu Roteiro</div>
-            <div style={{ fontSize: 12, opacity: .85, marginTop: 2 }}>{ordered.length} parques · {total.toLocaleString("pt-BR")} km total</div>
-          </div>
-          <button onClick={onClose} style={{ background: "#ffffff22", color: "#fff", border: "none",
-            borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18,
-            display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
-        </div>
-
-        {/* Route steps */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px" }}>
-          {/* Starting point */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#15803d", color: "#fff",
-              display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, flexShrink: 0 }}>📍</div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 14, color: "#1e293b" }}>{startLabel}</div>
-              <div style={{ fontSize: 11, color: "#94a3b8" }}>Ponto de partida</div>
-            </div>
-          </div>
-
-          {ordered.map((park, i) => (
-            <div key={park.id}>
-              {/* Connector line + distance */}
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 0" }}>
-                <div style={{ width: 32, display: "flex", justifyContent: "center", flexShrink: 0 }}>
-                  <div style={{ width: 2, height: 28, background: "#d1d5db" }} />
-                </div>
-                <span style={{ fontSize: 11, color: "#15803d", fontWeight: 600 }}>↓ {legs[i].toLocaleString("pt-BR")} km</span>
-              </div>
-              {/* Park step */}
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#dcfce7", color: "#15803d",
-                  display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, flexShrink: 0,
-                  border: "2px solid #15803d" }}>{i + 1}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: "#1e293b" }}>{park.name}</div>
-                  <div style={{ fontSize: 11, color: "#94a3b8" }}>{park.state} · {park.access}</div>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {/* Total */}
-          <div style={{ marginTop: 20, padding: "14px 16px", background: "#f0fdf4", borderRadius: 12,
-            border: "1px solid #bbf7d0", textAlign: "center" }}>
-            <div style={{ fontSize: 12, color: "#15803d", fontWeight: 600, marginBottom: 2 }}>Distância total estimada</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#14532d" }}>{total.toLocaleString("pt-BR")} km</div>
-          </div>
-        </div>
-
-        {/* Footer actions */}
-        <div style={{ padding: "12px 24px 16px", borderTop: "1px solid #e2e8f0", display: "flex", gap: 12 }}>
-          <button onClick={() => { onClear(); onClose(); }} style={{
-            flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #e2e8f0",
-            background: "#fff", color: "#64748b", cursor: "pointer", fontSize: 13, fontWeight: 600
-          }}>🗑️ Limpar roteiro</button>
-          <button onClick={onClose} style={{
-            flex: 1, padding: "10px", borderRadius: 10, border: "none",
-            background: "#15803d", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600
-          }}>Fechar</button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 const LS_GEO = "parques-geolocation";
@@ -991,6 +883,7 @@ export default function App() {
           startLng={ref.lng}
           onClose={() => setShowRoute(false)}
           onClear={() => { clearRoute(); setShowRoute(false); }}
+          onLoadRoute={(ids) => { setRouteIds(new Set(ids)); }}
         />
       )}
 
