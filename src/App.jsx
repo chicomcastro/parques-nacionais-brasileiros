@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { PARKS, SAO_PAULO } from "./parks-data.mjs";
 import { track } from "./analytics.mjs";
 import { useVisits } from "./useVisits.js";
-import RouteModal from "./RouteView.jsx";
+import RouteModal, { SavedRoutes } from "./RouteView.jsx";
+import { getAllRoutes, deleteRoute as deleteRouteDB } from "./db.mjs";
 
 // ── Helpers ──────────────────────────────────────────
 
@@ -227,18 +228,33 @@ function Carousel({ images, height, alt, onClickImage }) {
   );
 }
 
-function ParkCard({ park, onClick, isFav, onToggleFav, isVisited, routeMode, routeSelected, onRouteToggle }) {
+function ParkCard({ park, onClick, isFav, onToggleFav, isVisited, routeMode, routeSelected, onRouteToggle, onLongPress }) {
   const { images, done } = useParkImages(park.slug);
   const meta = STATUS[park.status];
   const wikiUrl = `https://pt.wikipedia.org/wiki/${encodeURIComponent(park.slug)}`;
+  const longPressTimer = useRef(null);
 
   const handleClick = () => {
     if (routeMode) { onRouteToggle(park.id); }
     else { onClick({ ...park, images, wikiUrl }); }
   };
 
+  const handlePointerDown = useCallback(() => {
+    if (routeMode) return;
+    longPressTimer.current = setTimeout(() => {
+      longPressTimer.current = null;
+      if (onLongPress) onLongPress(park.id);
+    }, 500);
+  }, [routeMode, park.id, onLongPress]);
+
+  const handlePointerUp = useCallback(() => {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+  }, []);
+
   return (
     <div onClick={handleClick} className="card-enter btn-press"
+      onPointerDown={handlePointerDown} onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
       style={{ borderRadius: 14, overflow: "hidden", cursor: "pointer", background: "#fff",
         boxShadow: routeSelected ? "0 0 0 3px #15803d" : "0 2px 12px #0001",
         transition: "transform .18s,box-shadow .18s", display: "flex", flexDirection: "column",
@@ -649,7 +665,7 @@ function BottomNav({ view, filter, routeMode, favCount, visitCount, onNavigate }
     { key: "explorar", icon: "🏞️", label: "Explorar", active: view === "grid" && filter === "todos" && !routeMode },
     { key: "favoritos", icon: "❤️", label: "Favoritos", active: view === "grid" && filter === "favoritos" && !routeMode, badge: favCount },
     { key: "passaporte", icon: "🛂", label: "Passaporte", active: view === "passaporte", badge: visitCount },
-    { key: "roteiro", icon: "🗺️", label: "Roteiro", active: routeMode },
+    { key: "roteiro", icon: "🗺️", label: "Roteiro", active: view === "roteiros" || routeMode },
   ];
   return (
     <nav className="bottom-nav">
@@ -670,7 +686,7 @@ export default function App() {
   const [filter, setFilter] = useState("todos");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
-  const [view, setView] = useState("grid"); // "grid" | "passaporte"
+  const [view, setView] = useState("grid"); // "grid" | "passaporte" | "roteiros"
   const { favs, toggle: toggleFav } = useFavorites();
   const { visits, save: saveVisit, remove: removeVisit, isVisited } = useVisits();
   const geo = useGeolocation();
@@ -684,6 +700,21 @@ export default function App() {
     catch { return new Set(); }
   });
   const [showRoute, setShowRoute] = useState(false);
+  const [showRouteDefaultTab, setShowRouteDefaultTab] = useState("rota");
+  const [savedRoutes, setSavedRoutes] = useState([]);
+  const [viewingSavedRoute, setViewingSavedRoute] = useState(null);
+
+  useEffect(() => { getAllRoutes().then(setSavedRoutes).catch(() => {}); }, []);
+
+  const refreshSavedRoutes = useCallback(() => {
+    getAllRoutes().then(setSavedRoutes).catch(() => {});
+  }, []);
+
+  const startRouteMode = useCallback((initialParkId) => {
+    setView("grid"); setFilter("todos"); setPage(1);
+    setRouteMode(true);
+    if (initialParkId) setRouteIds(new Set([initialParkId]));
+  }, []);
 
   useEffect(() => {
     try { localStorage.setItem("parques-route-mode", routeMode ? "1" : "0"); } catch {}
@@ -817,13 +848,33 @@ export default function App() {
           const wikiUrl = `https://pt.wikipedia.org/wiki/${encodeURIComponent(p.slug)}`;
           setSelected({ ...p, images: imgCache[p.slug] || [], wikiUrl });
         }} />
+      ) : view === "roteiros" ? (
+        <div className="parks-container" style={{ padding: "24px", maxWidth: 1200, margin: "0 auto" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#1e293b" }}>🗺️ Meus Roteiros</h2>
+            <button className="btn-press" onClick={() => startRouteMode()} style={{
+              padding: "8px 16px", borderRadius: 20, border: "none",
+              background: "linear-gradient(135deg,#14532d,#15803d)", color: "#fff",
+              cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+              + Criar novo
+            </button>
+          </div>
+          <SavedRoutes routes={savedRoutes}
+            onLoad={(r) => {
+              setRouteIds(new Set(r.parkIds));
+              setShowRouteDefaultTab("mapa");
+              setShowRoute(true);
+            }}
+            onDelete={(id) => { deleteRouteDB(id).then(() => setSavedRoutes(prev => prev.filter(r => r.id !== id))); }}
+          />
+        </div>
       ) : (
         <div className="parks-container" style={{ padding: "24px", maxWidth: 1200, margin: "0 auto" }}>
           {visible.length === 0
             ? <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}><div style={{ fontSize: 48 }}>🌿</div><p>Nenhum parque encontrado</p></div>
             : <div className="parks-grid" style={{ display: "grid" }}>
                 {visible.map(p => <ParkCard key={p.id} park={p} onClick={p => { track("park_open", { park_id: p.id, park_name: p.name }); setSelected(p); }} isFav={favs.has(p.id)} onToggleFav={toggleFav} isVisited={isVisited(p.id)}
-                  routeMode={routeMode} routeSelected={routeIds.has(p.id)} onRouteToggle={toggleRouteId} />)}
+                  routeMode={routeMode} routeSelected={routeIds.has(p.id)} onRouteToggle={toggleRouteId} onLongPress={startRouteMode} />)}
               </div>}
 
           {totalPages > 1 && (
@@ -881,8 +932,9 @@ export default function App() {
           startLabel={usingGeo ? "Sua localização" : "São Paulo"}
           startLat={ref.lat}
           startLng={ref.lng}
-          onClose={() => setShowRoute(false)}
-          onClear={() => { clearRoute(); setShowRoute(false); }}
+          defaultTab={showRouteDefaultTab}
+          onClose={() => { setShowRoute(false); setShowRouteDefaultTab("rota"); refreshSavedRoutes(); }}
+          onClear={() => { clearRoute(); setShowRoute(false); setShowRouteDefaultTab("rota"); refreshSavedRoutes(); }}
           onLoadRoute={(ids) => { setRouteIds(new Set(ids)); }}
         />
       )}
@@ -899,7 +951,10 @@ export default function App() {
           if (key === "explorar") { setView("grid"); setFilter("todos"); setPage(1); if (routeMode) toggleRouteMode(); }
           else if (key === "favoritos") { setView("grid"); setFilter("favoritos"); setPage(1); if (routeMode) toggleRouteMode(); track("filter_change", { filter: "favoritos" }); }
           else if (key === "passaporte") { setView("passaporte"); if (routeMode) toggleRouteMode(); }
-          else if (key === "roteiro") { setView("grid"); toggleRouteMode(); }
+          else if (key === "roteiro") {
+            if (routeMode) { toggleRouteMode(); setView("roteiros"); }
+            else { setView("roteiros"); }
+          }
         }}
       />
     </div>

@@ -81,7 +81,7 @@ function RouteMap({ startLat, startLng, ordered, legs }) {
   return <div ref={containerRef} style={{ width: "100%", height: "100%", borderRadius: 12, overflow: "hidden" }} />;
 }
 
-function SavedRoutes({ routes, onLoad, onDelete }) {
+export function SavedRoutes({ routes, onLoad, onDelete }) {
   if (routes.length === 0) return (
     <div style={{ textAlign: "center", padding: "20px", color: "#94a3b8", fontSize: 13 }}>
       Nenhum roteiro salvo ainda
@@ -105,8 +105,8 @@ function SavedRoutes({ routes, onLoad, onDelete }) {
   );
 }
 
-export default function RouteModal({ parks, startLabel, startLat, startLng, onClose, onClear, onLoadRoute }) {
-  const [tab, setTab] = useState("rota"); // rota | mapa | salvos
+export default function RouteModal({ parks, startLabel, startLat, startLng, onClose, onClear, onLoadRoute, defaultTab = "rota" }) {
+  const [tab, setTab] = useState(defaultTab);
   const [routeName, setRouteName] = useState("");
   const [savedRoutes, setSavedRoutes] = useState([]);
   const [saveMsg, setSaveMsg] = useState("");
