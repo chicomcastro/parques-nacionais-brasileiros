@@ -111,6 +111,9 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
   const [routeId, setRouteId] = useState(editingRoute?.id || null);
   const [saveMsg, setSaveMsg] = useState("");
   const [closing, setClosing] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [tempName, setTempName] = useState("");
+  const isExisting = !!routeId;
 
   const handleClose = useCallback(() => {
     setClosing(true);
@@ -176,14 +179,30 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
         <div style={{ background: "linear-gradient(135deg,#14532d,#166534,#15803d)", color: "#fff",
           padding: "20px 20px 16px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 800 }}>🗺️ Seu Roteiro</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {editingName ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <input autoFocus value={tempName} onChange={e => setTempName(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { setRouteName(tempName); setEditingName(false); } if (e.key === "Escape") setEditingName(false); }}
+                    style={{ flex: 1, fontSize: 18, fontWeight: 800, background: "#ffffff22", color: "#fff",
+                      border: "1px solid #fff6", borderRadius: 8, padding: "2px 8px", outline: "none", minWidth: 0 }} />
+                  <button onClick={() => { setRouteName(tempName); setEditingName(false); }} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: 18, padding: 2 }}>✓</button>
+                  <button onClick={() => setEditingName(false)} style={{ background: "none", border: "none", color: "#fff9", cursor: "pointer", fontSize: 16, padding: 2 }}>✕</button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    🗺️ {routeName || "Novo Roteiro"}
+                  </div>
+                  <button onClick={() => { setTempName(routeName); setEditingName(true); }} style={{ background: "none", border: "none", color: "#fff9", cursor: "pointer", fontSize: 14, padding: 2, flexShrink: 0 }}>✏️</button>
+                </div>
+              )}
               <div style={{ fontSize: 12, opacity: .85, marginTop: 2 }}>
                 {ordered.length} parques · {total.toLocaleString("pt-BR")} km · ~{days} dia{days !== 1 ? "s" : ""}
               </div>
             </div>
             <button className="btn-press" onClick={handleClose} style={{ background: "#ffffff22", color: "#fff", border: "none",
-              borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18,
+              borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18, flexShrink: 0, marginLeft: 8,
               display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
@@ -244,14 +263,18 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
 
         <div style={{ padding: "12px 20px 16px", borderTop: "1px solid #e2e8f0" }}>
           {saveMsg && <div style={{ textAlign: "center", color: "#15803d", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>{saveMsg}</div>}
+          {!isExisting && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <input value={routeName} onChange={e => setRouteName(e.target.value)}
+                placeholder="Nome do roteiro (opcional)"
+                style={{ flex: 1, padding: "8px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+            </div>
+          )}
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            <input value={routeName} onChange={e => setRouteName(e.target.value)}
-              placeholder="Nome do roteiro (opcional)"
-              style={{ flex: 1, padding: "8px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 13, outline: "none" }} />
             <button className="btn-press" onClick={handleSave} style={{
-              padding: "8px 16px", borderRadius: 10, border: "none", whiteSpace: "nowrap",
+              flex: 1, padding: "10px", borderRadius: 10, border: "none",
               background: "#15803d", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600
-            }}>💾 Salvar</button>
+            }}>💾 {isExisting ? "Atualizar" : "Salvar"}</button>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn-press" onClick={handleShare} style={{
