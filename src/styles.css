@@ -118,8 +118,8 @@ body {
 
 .bottom-nav-badge {
   position: absolute;
-  top: 4px;
-  margin-left: 16px;
+  top: 10px;
+  margin-left: 24px;
   background: #ef4444;
   color: #fff;
   font-size: 10px;
