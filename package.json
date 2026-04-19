@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/generate-park-pages.mjs",
     "preview": "vite preview",
     "validate": "node scripts/validate-parks.mjs"
   },

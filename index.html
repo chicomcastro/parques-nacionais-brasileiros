@@ -18,10 +18,69 @@
       .hero {
         background: linear-gradient(135deg, #14532d 0%, #166534 50%, #15803d 100%);
         color: #fff;
-        padding: 80px 24px 100px;
+        padding: 80px 24px 60px;
         text-align: center;
         position: relative;
         overflow: hidden;
+      }
+      .phone-wrap {
+        display: flex; justify-content: center; margin-top: 48px;
+        perspective: 1200px;
+      }
+      .phone {
+        width: 280px; height: 560px;
+        background: #0f172a;
+        border-radius: 40px;
+        padding: 10px;
+        box-shadow: 0 30px 80px rgba(0,0,0,.4), 0 0 0 2px #1f2937 inset;
+        transform: rotateY(-8deg) rotateX(3deg);
+        position: relative;
+      }
+      .phone::before {
+        content: ""; position: absolute; top: 14px; left: 50%;
+        transform: translateX(-50%); width: 80px; height: 22px;
+        background: #0f172a; border-radius: 999px; z-index: 3;
+      }
+      .phone-screen {
+        width: 100%; height: 100%; background: #f0fdf4;
+        border-radius: 32px; overflow: hidden;
+        display: flex; flex-direction: column;
+        font-family: -apple-system, system-ui, sans-serif;
+        color: #1e293b; text-align: left;
+      }
+      .phone-header {
+        background: linear-gradient(135deg,#14532d,#15803d);
+        color: #fff; padding: 40px 16px 16px; text-align: center;
+      }
+      .phone-header-logo { font-size: 28px; }
+      .phone-header h3 { font-size: 14px; margin: 4px 0 2px; font-weight: 800; letter-spacing: -.3px; }
+      .phone-header p { font-size: 10px; margin: 0; opacity: .8; }
+      .phone-chips { display: flex; gap: 4px; justify-content: center; margin-top: 8px; flex-wrap: wrap; }
+      .phone-chip { background: #ffffff22; border: 1px solid #fff6; color: #fff; padding: 2px 8px; border-radius: 999px; font-size: 8px; font-weight: 700; }
+      .phone-chip.active { background: #fff; color: #14532d; }
+      .phone-cards { flex: 1; padding: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; overflow: hidden; }
+      .phone-card {
+        background: #fff; border-radius: 8px; overflow: hidden;
+        box-shadow: 0 1px 4px #0001; display: flex; flex-direction: column;
+      }
+      .phone-card-img { height: 60px; background-size: cover; background-position: center; position: relative; }
+      .phone-card-badge { position: absolute; top: 4px; right: 4px; background: #dcfce7; color: #15803d; font-size: 7px; font-weight: 700; padding: 1px 5px; border-radius: 6px; }
+      .phone-card-body { padding: 6px 8px; }
+      .phone-card-name { font-size: 9px; font-weight: 700; color: #1e293b; line-height: 1.2; }
+      .phone-card-meta { font-size: 7px; color: #64748b; margin-top: 2px; }
+      .phone-nav {
+        background: #fff; border-top: 1px solid #e2e8f0;
+        display: flex; justify-content: space-around; padding: 8px 4px;
+      }
+      .phone-nav-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+      .phone-nav-icon { font-size: 14px; }
+      .phone-nav-label { font-size: 7px; font-weight: 600; color: #64748b; }
+      .phone-nav-btn.active .phone-nav-label { color: #15803d; }
+      @media (max-width: 600px) {
+        .phone { transform: rotateY(-4deg); width: 230px; height: 460px; }
+        .phone-header { padding: 32px 12px 12px; }
+        .phone-cards { padding: 8px; gap: 6px; }
+        .phone-card-img { height: 48px; }
       }
       .hero::before {
         content: ""; position: absolute; inset: 0;
@@ -111,6 +170,66 @@
           <div class="stat"><div class="stat-num">74</div><div class="stat-label">parques no Brasil</div></div>
           <div class="stat"><div class="stat-num">Grátis</div><div class="stat-label">e sem cadastro</div></div>
           <div class="stat"><div class="stat-num">Offline</div><div class="stat-label">funciona até no avião</div></div>
+        </div>
+        <div class="phone-wrap">
+          <div class="phone">
+            <div class="phone-screen">
+              <div class="phone-header">
+                <div class="phone-header-logo">🌳</div>
+                <h3>Parques Nacionais</h3>
+                <p>74 parques · perto de você</p>
+                <div class="phone-chips">
+                  <span class="phone-chip active">Todos</span>
+                  <span class="phone-chip">Abertos</span>
+                  <span class="phone-chip">❤️ Favoritos</span>
+                </div>
+              </div>
+              <div class="phone-cards">
+                <div class="phone-card">
+                  <div class="phone-card-img" style="background-image:linear-gradient(135deg,#065f46,#15803d);">
+                    <div class="phone-card-badge">Aberto</div>
+                  </div>
+                  <div class="phone-card-body">
+                    <div class="phone-card-name">Serra da Bocaina</div>
+                    <div class="phone-card-meta">SP/RJ · 209 km</div>
+                  </div>
+                </div>
+                <div class="phone-card">
+                  <div class="phone-card-img" style="background-image:linear-gradient(135deg,#78716c,#a8a29e);">
+                    <div class="phone-card-badge">Aberto</div>
+                  </div>
+                  <div class="phone-card-body">
+                    <div class="phone-card-name">Itatiaia</div>
+                    <div class="phone-card-meta">MG/RJ · 240 km</div>
+                  </div>
+                </div>
+                <div class="phone-card">
+                  <div class="phone-card-img" style="background-image:linear-gradient(135deg,#0c4a6e,#0284c7);">
+                    <div class="phone-card-badge">Aberto</div>
+                  </div>
+                  <div class="phone-card-body">
+                    <div class="phone-card-name">Lençóis Maranhenses</div>
+                    <div class="phone-card-meta">MA · 2.421 km</div>
+                  </div>
+                </div>
+                <div class="phone-card">
+                  <div class="phone-card-img" style="background-image:linear-gradient(135deg,#14532d,#22c55e);">
+                    <div class="phone-card-badge">Aberto</div>
+                  </div>
+                  <div class="phone-card-body">
+                    <div class="phone-card-name">Chapada Diamantina</div>
+                    <div class="phone-card-meta">BA · 1.310 km</div>
+                  </div>
+                </div>
+              </div>
+              <div class="phone-nav">
+                <div class="phone-nav-btn active"><div class="phone-nav-icon">🧭</div><div class="phone-nav-label">Explorar</div></div>
+                <div class="phone-nav-btn"><div class="phone-nav-icon">❤️</div><div class="phone-nav-label">Favoritos</div></div>
+                <div class="phone-nav-btn"><div class="phone-nav-icon">🛂</div><div class="phone-nav-label">Passaporte</div></div>
+                <div class="phone-nav-btn"><div class="phone-nav-icon">🗺️</div><div class="phone-nav-label">Roteiro</div></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </header>

@@ -1,8 +1,16 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { PARKS, SAO_PAULO } from "./parks-data.mjs";
+import { PARKS, SAO_PAULO, BIOMAS } from "./parks-data.mjs";
 import { track } from "./analytics.mjs";
 import { useVisits } from "./useVisits.js";
 import RouteModal, { SavedRoutes } from "./RouteView.jsx";
+import MapView from "./MapView.jsx";
+import { t, getLang, setLang, onLangChange } from "./i18n.mjs";
+
+function useLang() {
+  const [lang, setL] = useState(getLang());
+  useEffect(() => onLangChange(setL), []);
+  return lang;
+}
 import { getAllRoutes, deleteRoute as deleteRouteDB } from "./db.mjs";
 
 // ── Helpers ──────────────────────────────────────────
@@ -570,7 +578,7 @@ function VisitSection({ parkId, visit, onSave, onRemove }) {
         display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
       }}>
         <span className="material-icons-round" style={{ fontSize: 20 }}>check_circle</span>
-        Marcar como visitado
+        {t("mark_visited")}
       </button>
     );
   }
@@ -579,14 +587,14 @@ function VisitSection({ parkId, visit, onSave, onRemove }) {
     return (
       <div style={{ background: "#f0fdf4", borderRadius: 12, padding: 16, border: "1px solid #bbf7d0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <span style={{ fontWeight: 700, fontSize: 14, color: "#15803d" }}>&#10003; Visitado em {visit.date}</span>
+          <span style={{ fontWeight: 700, fontSize: 14, color: "#15803d" }}>&#10003; {t("visited_on")} {visit.date}</span>
           <div style={{ display: "flex", gap: 6 }}>
             <button onClick={() => setEditing(true)} style={{
               background: "#e2e8f0", border: "none", borderRadius: 8, padding: "4px 10px",
-              cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#475569" }}>Editar</button>
+              cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#475569" }}>{t("edit")}</button>
             <button onClick={handleRemove} disabled={saving} style={{
               background: "#fee2e2", border: "none", borderRadius: 8, padding: "4px 10px",
-              cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#dc2626" }}>Remover</button>
+              cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#dc2626" }}>{t("remove")}</button>
           </div>
         </div>
         {visit.notes && <p style={{ margin: "8px 0 0", fontSize: 13, color: "#334155", whiteSpace: "pre-wrap" }}>{visit.notes}</p>}
@@ -604,20 +612,20 @@ function VisitSection({ parkId, visit, onSave, onRemove }) {
   return (
     <div style={{ background: "#f8fafc", borderRadius: 12, padding: 16, border: "1px solid #e2e8f0" }}>
       <div style={{ fontWeight: 700, fontSize: 14, color: "#334155", marginBottom: 10 }}>
-        {visit ? "Editar visita" : "Marcar como visitado"}
+        {visit ? t("edit_visit") : t("mark_visited")}
       </div>
       <div style={{ marginBottom: 8 }}>
-        <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 3 }}>Data da visita</label>
+        <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 3 }}>{t("visit_date")}</label>
         <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
       </div>
       <div style={{ marginBottom: 8 }}>
-        <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 3 }}>Notas (opcional)</label>
+        <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 3 }}>{t("notes_optional")}</label>
         <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
-          placeholder="Suas impressoes sobre o parque..."
+          placeholder={t("notes_placeholder")}
           style={{ ...inputStyle, resize: "vertical" }} />
       </div>
       <div style={{ marginBottom: 10 }}>
-        <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 3 }}>Fotos (opcional)</label>
+        <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 3 }}>{t("photos_optional")}</label>
         <input type="file" accept="image/*" multiple onChange={handleFiles}
           style={{ fontSize: 12 }} />
         {photos.length > 0 && (
@@ -639,11 +647,11 @@ function VisitSection({ parkId, visit, onSave, onRemove }) {
         <button onClick={handleSave} disabled={saving} style={{
           flex: 1, background: "#15803d", color: "#fff", border: "none", borderRadius: 8,
           padding: "8px", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
-          {saving ? "Salvando..." : "Salvar visita"}
+          {saving ? t("saving") : t("save_visit")}
         </button>
         <button onClick={() => setEditing(false)} style={{
           background: "#e2e8f0", border: "none", borderRadius: 8, padding: "8px 14px",
-          cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#475569" }}>Cancelar</button>
+          cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#475569" }}>{t("cancel")}</button>
       </div>
     </div>
   );
@@ -698,15 +706,15 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
             <VisitSection parkId={park.id} visit={visit} onSave={onSaveVisit} onRemove={onRemoveVisit} />
           </div>
           <div className="modal-info-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            {[["🗺️ Estado", park.state], ["📏 Distância", `${park.dist.toLocaleString("pt-BR")} km`], ["🚌 Acesso", park.access], ["🎫 Entrada", park.entrada], ["🕐 Horário", park.horario], ["📅 Melhor época", park.melhorEpoca]].map(([k, v]) => (
+            {[[t("state"), park.state], [t("distance"), `${park.dist.toLocaleString("pt-BR")} km`], [t("biome"), park.bioma || "—"], [t("access"), park.access], [t("entry"), park.entrada], [t("hours"), park.horario], [t("best_season"), park.melhorEpoca]].map(([k, v]) => (
               <div key={k} style={{ background: "#f8fafc", borderRadius: 12, padding: "10px 14px" }}>
                 <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>{k}</div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#334155" }}>{v}</div>
               </div>
             ))}
             <div style={{ background: "#f8fafc", borderRadius: 12, padding: "10px 14px", gridColumn: "1 / -1" }}>
-              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>🥾 Trilhas</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#334155" }}>{park.trilhas?.length > 0 ? park.trilhas.join(", ") : "Sem trilhas cadastradas"}</div>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>{t("trails")}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#334155" }}>{park.trilhas?.length > 0 ? park.trilhas.join(", ") : t("no_trails")}</div>
             </div>
           </div>
           {shareMsg && <div style={{ textAlign: "center", color: "#15803d", fontSize: 12, fontWeight: 600, marginTop: 12 }}>{shareMsg}</div>}
@@ -717,13 +725,13 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
                 padding: "10px", borderRadius: 10, textDecoration: "none", fontSize: 13, fontWeight: 600,
                 border: "1px solid #e2e8f0",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              <span className="material-icons-round" style={{ fontSize: 18 }}>link</span> Wikipedia
+              <span className="material-icons-round" style={{ fontSize: 18 }}>link</span> {t("wikipedia")}
             </a>
             <button onClick={handleShare} style={{
               flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #e2e8f0",
               background: "#fff", color: "#475569", cursor: "pointer", fontSize: 13, fontWeight: 600,
               display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              <span className="material-icons-round" style={{ fontSize: 18 }}>share</span> Compartilhar
+              <span className="material-icons-round" style={{ fontSize: 18 }}>share</span> {t("share")}
             </button>
           </div>
         </div>
@@ -736,7 +744,81 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
   );
 }
 
+function generatePassportImage(visits, parks) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1080; canvas.height = 1080;
+  const ctx = canvas.getContext("2d");
+  const grad = ctx.createLinearGradient(0, 0, 1080, 1080);
+  grad.addColorStop(0, "#14532d"); grad.addColorStop(0.5, "#166534"); grad.addColorStop(1, "#15803d");
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, 1080, 1080);
+
+  ctx.fillStyle = "#ffffff18";
+  ctx.beginPath(); ctx.arc(900, 180, 240, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(180, 900, 180, 0, Math.PI * 2); ctx.fill();
+
+  ctx.textAlign = "center"; ctx.fillStyle = "#fff";
+  ctx.font = "600 36px -apple-system, system-ui, sans-serif";
+  ctx.fillText("🛂  MEU PASSAPORTE", 540, 200);
+
+  const total = Object.keys(visits).length;
+  const pct = Math.round((total / 74) * 100);
+
+  ctx.font = "800 280px -apple-system, system-ui, sans-serif";
+  ctx.fillText(`${total}`, 540, 540);
+  ctx.font = "600 48px -apple-system, system-ui, sans-serif";
+  ctx.fillStyle = "#ffffffcc";
+  ctx.fillText(`de 74 parques nacionais`, 540, 610);
+
+  const barX = 140, barY = 700, barW = 800, barH = 24;
+  ctx.fillStyle = "#ffffff33";
+  ctx.beginPath(); ctx.roundRect(barX, barY, barW, barH, 12); ctx.fill();
+  ctx.fillStyle = "#fbbf24";
+  ctx.beginPath(); ctx.roundRect(barX, barY, Math.max(barW * total / 74, 24), barH, 12); ctx.fill();
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "700 56px -apple-system, system-ui, sans-serif";
+  ctx.fillText(`${pct}% completo`, 540, 810);
+
+  const states = new Set();
+  for (const p of parks) if (visits[p.id]) p.state.split("/").forEach(s => states.add(s));
+  ctx.font = "500 30px -apple-system, system-ui, sans-serif";
+  ctx.fillStyle = "#ffffffcc";
+  if (states.size > 0) ctx.fillText(`${states.size} estado${states.size !== 1 ? "s" : ""} visitado${states.size !== 1 ? "s" : ""}`, 540, 870);
+
+  ctx.font = "600 26px -apple-system, system-ui, sans-serif";
+  ctx.fillStyle = "#ffffff99";
+  ctx.fillText("parques-nacionais-brasileiros", 540, 1000);
+  ctx.font = "700 34px -apple-system, system-ui, sans-serif";
+  ctx.fillStyle = "#fff";
+  ctx.fillText("🌳 Parques Nacionais do Brasil", 540, 960);
+
+  return new Promise(res => canvas.toBlob(res, "image/png"));
+}
+
 function PassaporteView({ visits, parks, onSelectPark }) {
+  const [shareMsg, setShareMsg] = useState("");
+  const total = Object.keys(visits).length;
+
+  const handleShare = async () => {
+    const blob = await generatePassportImage(visits, parks);
+    if (!blob) return;
+    const file = new File([blob], "meu-passaporte.png", { type: "image/png" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: "Meu Passaporte", text: `Visitei ${total} de 74 parques nacionais do Brasil 🌳` });
+        track("passport_share", { method: "native", visited: total });
+      } catch {}
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "meu-passaporte.png"; a.click();
+      URL.revokeObjectURL(url);
+      track("passport_share", { method: "download", visited: total });
+      setShareMsg(t("image_saved"));
+      setTimeout(() => setShareMsg(""), 2000);
+    }
+  };
+
   const visitedParks = useMemo(() => {
     return parks.filter(p => visits[p.id]).map(p => ({
       ...p,
@@ -744,7 +826,6 @@ function PassaporteView({ visits, parks, onSelectPark }) {
     })).sort((a, b) => (b.visit.date || "").localeCompare(a.visit.date || ""));
   }, [parks, visits]);
 
-  const total = Object.keys(visits).length;
   const pct = ((total / 74) * 100).toFixed(1);
 
   return (
@@ -752,18 +833,18 @@ function PassaporteView({ visits, parks, onSelectPark }) {
       <div style={{ background: "#fff", borderRadius: 16, padding: 24, marginBottom: 24,
         boxShadow: "0 2px 12px #0001", textAlign: "center" }}>
         <div style={{ fontSize: 48, marginBottom: 8 }}>🛂</div>
-        <h2 style={{ margin: "0 0 4px", fontSize: 22, color: "#14532d", fontWeight: 800 }}>Meu Passaporte</h2>
+        <h2 style={{ margin: "0 0 4px", fontSize: 22, color: "#14532d", fontWeight: 800 }}>{t("my_passport")}</h2>
         <p style={{ margin: "0 0 12px", fontSize: 14, color: "#64748b" }}>
-          Registro das suas visitas aos parques nacionais
+          {t("passport_desc")}
         </p>
         <div style={{ display: "flex", justifyContent: "center", gap: 24, flexWrap: "wrap" }}>
           <div style={{ background: "#f0fdf4", borderRadius: 12, padding: "12px 24px", border: "1px solid #bbf7d0" }}>
             <div style={{ fontSize: 28, fontWeight: 800, color: "#15803d" }}>{total}</div>
-            <div style={{ fontSize: 12, color: "#64748b" }}>de 74 visitados</div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>{t("of_74_visited")}</div>
           </div>
           <div style={{ background: "#f0fdf4", borderRadius: 12, padding: "12px 24px", border: "1px solid #bbf7d0" }}>
             <div style={{ fontSize: 28, fontWeight: 800, color: "#15803d" }}>{pct}%</div>
-            <div style={{ fontSize: 12, color: "#64748b" }}>completo</div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>{t("complete")}</div>
           </div>
         </div>
         {total > 0 && (
@@ -772,12 +853,24 @@ function PassaporteView({ visits, parks, onSelectPark }) {
               width: `${(total / 74) * 100}%`, borderRadius: 8, transition: "width .3s" }} />
           </div>
         )}
+        {total > 0 && (
+          <button onClick={handleShare} style={{
+            marginTop: 16, padding: "10px 20px", borderRadius: 999, border: "none",
+            background: "linear-gradient(135deg,#14532d,#15803d)", color: "#fff",
+            cursor: "pointer", fontSize: 13, fontWeight: 700,
+            display: "inline-flex", alignItems: "center", gap: 6, boxShadow: "0 4px 14px #15803d44",
+          }}>
+            <span className="material-icons-round" style={{ fontSize: 18 }}>share</span>
+            {t("share_passport")}
+          </button>
+        )}
+        {shareMsg && <div style={{ marginTop: 8, color: "#15803d", fontSize: 12, fontWeight: 600 }}>{shareMsg}</div>}
       </div>
 
       {visitedParks.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}>
           <div style={{ fontSize: 48 }}>🌿</div>
-          <p>Nenhum parque visitado ainda. Abra um parque e marque como visitado!</p>
+          <p>{t("no_parks_visited")}</p>
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 16 }}>
@@ -823,10 +916,10 @@ function PassaporteView({ visits, parks, onSelectPark }) {
 
 function BottomNav({ view, filter, routeMode, favCount, visitCount, onNavigate }) {
   const tabs = [
-    { key: "explorar", icon: "explore", label: "Explorar", active: view === "grid" && filter !== "favoritos" && !routeMode },
-    { key: "favoritos", icon: "favorite", label: "Favoritos", active: view === "grid" && filter === "favoritos" && !routeMode, badge: favCount },
-    { key: "passaporte", icon: "badge", label: "Passaporte", active: view === "passaporte", badge: visitCount },
-    { key: "roteiro", icon: "map", label: "Roteiro", active: view === "roteiros" || routeMode },
+    { key: "explorar", icon: "explore", label: t("nav_explore"), active: view === "grid" && filter !== "favoritos" && !routeMode },
+    { key: "favoritos", icon: "favorite", label: t("nav_favorites"), active: view === "grid" && filter === "favoritos" && !routeMode, badge: favCount },
+    { key: "passaporte", icon: "badge", label: t("nav_passport"), active: view === "passaporte", badge: visitCount },
+    { key: "roteiro", icon: "map", label: t("nav_route"), active: view === "roteiros" || routeMode },
   ];
   return (
     <nav className="bottom-nav">
@@ -844,13 +937,19 @@ function BottomNav({ view, filter, routeMode, favCount, visitCount, onNavigate }
 
 function getUrlParams() {
   const p = new URLSearchParams(window.location.search);
-  return { view: p.get("view") || "grid", filter: p.get("filter") || "todos", page: parseInt(p.get("page")) || 1 };
+  return {
+    view: p.get("view") || "grid",
+    filter: p.get("filter") || "todos",
+    bioma: p.get("bioma") || "todos",
+    page: parseInt(p.get("page")) || 1,
+  };
 }
 
 function setUrlParams(params) {
   const p = new URLSearchParams();
   if (params.view && params.view !== "grid") p.set("view", params.view);
   if (params.filter && params.filter !== "todos") p.set("filter", params.filter);
+  if (params.bioma && params.bioma !== "todos") p.set("bioma", params.bioma);
   if (params.page && params.page > 1) p.set("page", String(params.page));
   const qs = p.toString();
   window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
@@ -872,8 +971,10 @@ export default function App() {
   const initial = getUrlParams();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState(initial.filter);
+  const [biomaFilter, setBiomaFilter] = useState(initial.bioma);
   const [page, setPage] = useState(initial.page);
   const isMobile = useIsMobile();
+  const lang = useLang();
   const sentinelRef = useRef(null);
   const [selected, setSelected] = useState(null);
   const [view, setView] = useState(initial.view);
@@ -883,7 +984,7 @@ export default function App() {
 
   const initialParkId = useRef(parseInt(new URLSearchParams(window.location.search).get("park")) || null);
 
-  useEffect(() => { setUrlParams({ view, filter, page }); }, [view, filter, page]);
+  useEffect(() => { setUrlParams({ view, filter, bioma: biomaFilter, page }); }, [view, filter, biomaFilter, page]);
 
   useEffect(() => {
     if (!initialParkId.current) return;
@@ -970,9 +1071,10 @@ export default function App() {
   const filtered = useMemo(() => parksWithDist.filter(p => {
     const ms = p.name.toLowerCase().includes(search.toLowerCase()) || p.state.toLowerCase().includes(search.toLowerCase());
     if (!ms) return false;
+    if (biomaFilter !== "todos" && p.bioma !== biomaFilter) return false;
     if (filter === "favoritos") return favs.has(p.id);
     return filter === "todos" || p.status === filter;
-  }), [parksWithDist, search, filter, favs]);
+  }), [parksWithDist, search, filter, biomaFilter, favs]);
 
   const totalPages = Math.ceil(filtered.length / PAGE);
   const visible = isMobile
@@ -997,7 +1099,14 @@ export default function App() {
     return () => io.disconnect();
   }, [isMobile, page, totalPages, view]);
 
-  useEffect(() => { if (isMobile) setPage(1); }, [filter, search, isMobile]);
+  useEffect(() => { if (isMobile) setPage(1); }, [filter, search, biomaFilter, isMobile]);
+
+  const biomaIcons = { "Amazônia": "🌴", "Cerrado": "🌾", "Mata Atlântica": "🌳", "Caatinga": "🌵", "Pantanal": "🐊", "Pampa": "🐎", "Marinho": "🐚" };
+  const biomaCounts = useMemo(() => {
+    const c = {};
+    for (const b of BIOMAS) c[b] = PARKS.filter(p => p.bioma === b).length;
+    return c;
+  }, []);
   const counts = {
     aberto: PARKS.filter(p => p.status === "aberto").length,
     limitado: PARKS.filter(p => p.status === "limitado").length,
@@ -1010,28 +1119,33 @@ export default function App() {
 
   return (
     <div className="app-root" style={{ minHeight: "100vh", background: "#f0fdf4" }}>
-      <div className="app-header" style={{ background: "linear-gradient(135deg,#14532d,#166534,#15803d)", color: "#fff", padding: "32px 24px 24px", textAlign: "center", fontSize: 24 }}>
+      <div className="app-header" style={{ background: "linear-gradient(135deg,#14532d,#166534,#15803d)", color: "#fff", padding: "32px 24px 24px", textAlign: "center", fontSize: 24, position: "relative" }}>
         <div className="logo" style={{ fontSize: 40, marginBottom: 8 }}>🌳</div>
-        <h1 style={{ margin: "0 0 4px", fontWeight: 800, letterSpacing: -.5 }}>Parques Nacionais do Brasil</h1>
+        <h1 style={{ margin: "0 0 4px", fontWeight: 800, letterSpacing: -.5 }}>{t("app_title")}</h1>
         <p className="subtitle" style={{ margin: "0 0 12px", opacity: .8, fontSize: 14 }}>
-          74 parques · ordenados por distância de {usingGeo ? "você" : "SP"}
+          {t("subtitle_count")} {usingGeo ? t("subtitle_you") : t("subtitle_sp")}
         </p>
+        <button onClick={() => { const nl = lang === "pt" ? "en" : "pt"; setLang(nl); track("lang_change", { lang: nl }); }} style={{
+          position: "absolute", top: 12, right: 12, background: "#ffffff22", border: "1px solid #fff6",
+          color: "#fff", padding: "4px 10px", borderRadius: 16, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
+          {lang === "pt" ? "EN" : "PT"}
+        </button>
         <div style={{ marginBottom: 16 }}>
           {geo.status === "idle" && (
             <button className="btn-press" onClick={() => { geo.request(); track("geolocation_request"); }} style={{
               background: "#ffffff22", border: "1px solid #fff6", color: "#fff",
               padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-              📍 Usar minha localização
+              {t("use_my_location")}
             </button>
           )}
           {geo.status === "loading" && (
-            <span style={{ fontSize: 12, opacity: .8 }}>📍 Obtendo localização...</span>
+            <span style={{ fontSize: 12, opacity: .8 }}>{t("getting_location")}</span>
           )}
           {geo.status === "granted" && (
             <button className="btn-press" onClick={geo.reset} style={{
               background: "#ffffff22", border: "1px solid #fff6", color: "#fff",
               padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-              📍 Usando sua localização · Voltar para SP
+              {t("using_location_back_sp")}
             </button>
           )}
           {geo.status === "denied" && (
@@ -1039,16 +1153,16 @@ export default function App() {
               <button className="btn-press" onClick={() => { geo.request(); track("geolocation_retry"); }} style={{
                 background: "#ffffff22", border: "1px solid #fff6", color: "#fff",
                 padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                📍 Tentar novamente · usando SP
+                {t("location_denied_retry")}
               </button>
               <div style={{ fontSize: 11, opacity: .7, marginTop: 6 }}>
-                Se não aparecer o pedido, libere nas permissões do navegador (🔒 na barra de endereço)
+                {t("location_hint")}
               </div>
             </div>
           )}
         </div>
         <div className="status-filters" style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-          {[["todos", "Todos", 74], ["aberto", "Abertos", counts.aberto], ["limitado", "Limitados", counts.limitado], ["fechado", "Fechados", counts.fechado]].map(([k, l, cnt]) => (
+          {[["todos", t("all"), 74], ["aberto", t("open"), counts.aberto], ["limitado", t("limited"), counts.limitado], ["fechado", t("closed"), counts.fechado]].map(([k, l, cnt]) => (
             <button className="btn-press" key={k} onClick={() => { setFilter(k); setPage(1); setView("grid"); track("filter_change", { filter: k }); }} style={{
               border: "2px solid #fff", background: filter === k && view === "grid" ? "#fff" : "transparent",
               color: filter === k && view === "grid" ? "#14532d" : "#fff", padding: "6px 16px", borderRadius: 20,
@@ -1060,21 +1174,45 @@ export default function App() {
             border: "2px solid #fff", background: filter === "favoritos" && view === "grid" ? "#fff" : "transparent",
             color: filter === "favoritos" && view === "grid" ? "#14532d" : "#fff", padding: "6px 16px", borderRadius: 20,
             cursor: "pointer", fontWeight: 700, fontSize: 13, transition: "all .15s" }}>
-            Favoritos <span style={{ opacity: .7 }}>({favs.size})</span>
+            {t("favorites")} <span style={{ opacity: .7 }}>({favs.size})</span>
           </button>
           <button className="btn-press header-nav-pills" onClick={() => setView(v => { const nv = v === "passaporte" ? "grid" : "passaporte"; track("view_change", { view: nv, source: "header" }); return nv; })} style={{
             border: "2px solid #fbbf24", background: view === "passaporte" ? "#fbbf24" : "transparent",
             color: view === "passaporte" ? "#14532d" : "#fbbf24", padding: "6px 16px", borderRadius: 20,
             cursor: "pointer", fontWeight: 700, fontSize: 13, transition: "all .15s" }}>
-            🛂 Passaporte <span style={{ opacity: .7 }}>({Object.keys(visits).length}/74)</span>
+            🛂 {t("passport_header")} <span style={{ opacity: .7 }}>({Object.keys(visits).length}/74)</span>
           </button>
+        </div>
+        <div className="bioma-filters" style={{ display: "flex", justifyContent: "center", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+          <button className="btn-press" onClick={() => { setBiomaFilter("todos"); setPage(1); setView("grid"); track("bioma_filter_change", { bioma: "todos" }); }} style={{
+            border: "1px solid #ffffff66", background: biomaFilter === "todos" ? "#ffffff22" : "transparent",
+            color: "#fff", padding: "4px 10px", borderRadius: 16, cursor: "pointer", fontSize: 11, fontWeight: 600 }}>
+            {t("all_biomes")}
+          </button>
+          {BIOMAS.map(b => (
+            <button className="btn-press" key={b} onClick={() => { setBiomaFilter(b); setPage(1); setView("grid"); track("bioma_filter_change", { bioma: b }); }} style={{
+              border: "1px solid #ffffff66", background: biomaFilter === b ? "#ffffff22" : "transparent",
+              color: "#fff", padding: "4px 10px", borderRadius: 16, cursor: "pointer", fontSize: 11, fontWeight: 600 }}>
+              {biomaIcons[b]} {b} <span style={{ opacity: .6 }}>({biomaCounts[b]})</span>
+            </button>
+          ))}
         </div>
       </div>
 
       <div className="search-bar" style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "12px 24px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-          placeholder="🔍  Buscar por nome ou estado..."
+          placeholder={t("search_placeholder")}
           style={{ flex: 1, minWidth: 120, padding: "8px 14px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, outline: "none" }} />
+        <button className="btn-press" onClick={() => { const nv = view === "mapa" ? "grid" : "mapa"; setView(nv); track("view_change", { view: nv, source: "toggle" }); }} style={{
+          padding: "8px 14px", borderRadius: 20, border: "none", cursor: "pointer",
+          fontWeight: 700, fontSize: 13, whiteSpace: "nowrap",
+          background: view === "mapa" ? "linear-gradient(135deg,#14532d,#15803d)" : "#f0fdf4",
+          color: view === "mapa" ? "#fff" : "#15803d",
+          display: "inline-flex", alignItems: "center", gap: 4,
+        }}>
+          <span className="material-icons-round" style={{ fontSize: 18 }}>{view === "mapa" ? "view_module" : "map"}</span>
+          {view === "mapa" ? t("list") : t("map")}
+        </button>
         <button className="btn-press toggle-route-btn" onClick={toggleRouteMode} style={{
           padding: "8px 16px", borderRadius: 20, border: "none", cursor: "pointer",
           fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", transition: "all .15s",
@@ -1082,12 +1220,18 @@ export default function App() {
           color: routeMode ? "#fff" : "#15803d",
           boxShadow: routeMode ? "0 2px 8px #15803d44" : "none",
         }}>
-          {routeMode ? "✕ Sair do roteiro" : "🗺️ Montar Roteiro"}
+          {routeMode ? t("exit_route") : t("build_route")}
         </button>
-        <span style={{ fontSize: 13, color: "#64748b", whiteSpace: "nowrap" }}>{filtered.length} parque{filtered.length !== 1 ? "s" : ""}</span>
+        <span style={{ fontSize: 13, color: "#64748b", whiteSpace: "nowrap" }}>{t("parks_count", filtered.length)}</span>
       </div>
 
-      {view === "passaporte" ? (
+      {view === "mapa" ? (
+        <MapView parks={filtered} onSelectPark={(p) => {
+          track("park_open", { park_id: p.id, park_name: p.name, source: "map" });
+          const wikiUrl = `https://pt.wikipedia.org/wiki/${encodeURIComponent(p.slug)}`;
+          setSelected({ ...p, images: imgCache[p.slug] || [], wikiUrl });
+        }} />
+      ) : view === "passaporte" ? (
         <PassaporteView visits={visits} parks={parksWithDist} onSelectPark={(p) => {
           track("park_open", { park_id: p.id, park_name: p.name, source: "passaporte" });
           const wikiUrl = `https://pt.wikipedia.org/wiki/${encodeURIComponent(p.slug)}`;
@@ -1096,12 +1240,12 @@ export default function App() {
       ) : view === "roteiros" ? (
         <div className="parks-container" style={{ padding: "24px", maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#1e293b" }}>🗺️ Meus Roteiros</h2>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#1e293b" }}>{t("my_routes")}</h2>
             <button className="btn-press" onClick={() => startRouteMode()} style={{
               padding: "8px 16px", borderRadius: 20, border: "none",
               background: "linear-gradient(135deg,#14532d,#15803d)", color: "#fff",
               cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
-              + Criar novo
+              {t("create_new")}
             </button>
           </div>
           <SavedRoutes routes={savedRoutes}
@@ -1116,7 +1260,7 @@ export default function App() {
       ) : (
         <div className="parks-container" style={{ padding: "24px", maxWidth: 1200, margin: "0 auto" }}>
           {visible.length === 0
-            ? <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}><div style={{ fontSize: 48 }}>🌿</div><p>Nenhum parque encontrado</p></div>
+            ? <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}><div style={{ fontSize: 48 }}>🌿</div><p>{t("no_parks_found")}</p></div>
             : <div className="parks-grid" style={{ display: "grid" }}>
                 {visible.map((p, i) => <ParkCard key={p.id} park={p} position={i} onClick={p => { track("park_open", { park_id: p.id, park_name: p.name, position: i }); setSelected(p); }} isFav={favs.has(p.id)} onToggleFav={toggleFav} isVisited={isVisited(p.id)}
                   routeMode={routeMode} routeSelected={routeIds.has(p.id)} onRouteToggle={toggleRouteId} onLongPress={startRouteMode} />)}
@@ -1158,20 +1302,20 @@ export default function App() {
           padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between",
           boxShadow: "0 -4px 20px #0003" }}>
           <span style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>
-            {routeIds.size} parque{routeIds.size !== 1 ? "s" : ""} selecionado{routeIds.size !== 1 ? "s" : ""}
+            {t("parks_selected", routeIds.size)}
           </span>
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={clearRoute} style={{
               padding: "8px 16px", borderRadius: 20, border: "1px solid #fff6",
               background: "transparent", color: "#fff", cursor: "pointer",
               fontSize: 13, fontWeight: 600 }}>
-              Limpar
+              {t("clear")}
             </button>
             <button onClick={() => { track("route_modal_open", { park_count: routeIds.size }); setShowRoute(true); }} style={{
               padding: "8px 20px", borderRadius: 20, border: "none",
               background: "#fff", color: "#14532d", cursor: "pointer",
               fontSize: 13, fontWeight: 700, boxShadow: "0 2px 8px #0003" }}>
-              Ver Roteiro
+              {t("view_route")}
             </button>
           </div>
         </div>
@@ -1191,7 +1335,7 @@ export default function App() {
 
       <footer style={{ textAlign: "center", padding: "24px", color: "#94a3b8", fontSize: 12, borderTop: "1px solid #e2e8f0",
         marginBottom: routeMode && routeIds.size > 0 ? 60 : 0 }}>
-        Atualizado em 07/04/2026 · Dados: Wikipedia
+        {t("footer_updated")}
       </footer>
 
       <BottomNav
