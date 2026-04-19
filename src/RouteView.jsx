@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { saveRoute, deleteRoute } from "./db.mjs";
+import { track } from "./analytics.mjs";
 import "leaflet/dist/leaflet.css";
 
 function haversine(lat1, lng1, lat2, lng2) {
@@ -84,7 +85,7 @@ export function SavedRoutes({ routes, onLoad, onDelete }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {routes.sort((a, b) => b.savedAt - a.savedAt).map(r => (
         <div key={r.id} style={{ background: "#f8fafc", borderRadius: 12, padding: "12px 14px",
-          display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={() => onLoad(r)}>
+          display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={() => { track("saved_route_load", { route_id: r.id, park_count: r.parkIds.length, total_km: r.totalKm }); onLoad(r); }}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: "#dcfce7", color: "#15803d",
             display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <Icon name="map" size={22} />
@@ -95,7 +96,7 @@ export function SavedRoutes({ routes, onLoad, onDelete }) {
               {r.parkIds.length} parques · {r.totalKm.toLocaleString("pt-BR")} km · {new Date(r.savedAt).toLocaleDateString("pt-BR")}
             </div>
           </div>
-          <button onClick={e => { e.stopPropagation(); onDelete(r.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 4 }}>
+          <button onClick={e => { e.stopPropagation(); track("saved_route_delete", { route_id: r.id }); onDelete(r.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 4 }}>
             <Icon name="delete_outline" size={20} />
           </button>
         </div>
@@ -135,36 +136,41 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
   const handleSave = useCallback(() => {
     const name = routeName.trim() || `Roteiro ${new Date().toLocaleDateString("pt-BR")}`;
     const id = routeId || Date.now().toString();
+    const isUpdate = !!routeId;
     const route = { id, name, parkIds: ordered.map(p => p.id), totalKm: total, days, startLabel, startLat, startLng, savedAt: Date.now() };
     saveRoute(route).then(() => {
+      track(isUpdate ? "route_update" : "route_save", { route_id: id, park_count: ordered.length, total_km: total, days });
       setRouteId(id);
       setRouteName(name);
-      setSaveMsg(routeId ? "Atualizado!" : "Salvo!");
+      setSaveMsg(isUpdate ? "Atualizado!" : "Salvo!");
       setTimeout(() => setSaveMsg(""), 2000);
     });
   }, [ordered, total, days, routeName, routeId, startLabel, startLat, startLng]);
 
   const handleDelete = useCallback(() => {
     if (routeId) {
+      track("route_delete", { route_id: routeId, park_count: ordered.length });
       deleteRoute(routeId).then(() => animateClose(onClear));
     } else {
+      track("route_clear", { park_count: ordered.length });
       animateClose(onClear);
     }
-  }, [routeId, animateClose, onClear]);
+  }, [routeId, ordered.length, animateClose, onClear]);
 
   const handleShare = useCallback(async () => {
     const text = `🌳 Meu roteiro de parques nacionais!\n\n${ordered.map((p, i) => `${i + 1}. ${p.name} (${p.state})`).join("\n")}\n\n📏 ${total.toLocaleString("pt-BR")} km · ~${days} dias\n\n🔗 https://chicomcastro.github.io/parques-nacionais-brasileiros/`;
     if (navigator.share) {
-      try { await navigator.share({ title: "Meu Roteiro de Parques", text }); } catch {}
+      try { await navigator.share({ title: "Meu Roteiro de Parques", text }); track("route_share", { method: "native", park_count: ordered.length, total_km: total }); } catch {}
     } else {
       await navigator.clipboard.writeText(text);
+      track("route_share", { method: "clipboard", park_count: ordered.length, total_km: total });
       setSaveMsg("Copiado!");
       setTimeout(() => setSaveMsg(""), 2000);
     }
   }, [ordered, total, days]);
 
   const tabBtn = (key, label, icon) => (
-    <button className="btn-press" key={key} onClick={() => setTab(key)} style={{
+    <button className="btn-press" key={key} onClick={() => { setTab(key); track("route_tab_change", { tab: key }); }} style={{
       flex: 1, padding: "8px 4px", borderRadius: 10, border: "none",
       background: tab === key ? "#15803d" : "#f1f5f9",
       color: tab === key ? "#fff" : "#64748b",
@@ -191,7 +197,7 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
                     onKeyDown={e => { if (e.key === "Enter") { setRouteName(tempName); setEditingNameMode(false); } if (e.key === "Escape") setEditingNameMode(false); }}
                     style={{ flex: 1, fontSize: 17, fontWeight: 800, background: "#ffffff22", color: "#fff",
                       border: "1px solid #fff6", borderRadius: 8, padding: "4px 10px", outline: "none", minWidth: 0 }} />
-                  <button onClick={() => { setRouteName(tempName); setEditingNameMode(false); }} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", padding: 2 }}>
+                  <button onClick={() => { setRouteName(tempName); setEditingNameMode(false); track("route_rename"); }} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", padding: 2 }}>
                     <Icon name="check" size={20} />
                   </button>
                   <button onClick={() => setEditingNameMode(false)} style={{ background: "none", border: "none", color: "#fffc", cursor: "pointer", padding: 2 }}>
@@ -284,7 +290,7 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
             </div>
           )}
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            <a href={mapsUrl} target="_blank" rel="noreferrer" className="btn-press" style={{
+            <a href={mapsUrl} target="_blank" rel="noreferrer" className="btn-press" onClick={() => track("route_open_maps", { park_count: ordered.length, total_km: total })} style={{
               flex: 1, padding: "10px", borderRadius: 10, border: "none",
               background: "#15803d", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600,
               textDecoration: "none", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6

@@ -37,15 +37,17 @@ function useGeolocation() {
       pos => {
         const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setLocation(loc); setStatus("granted");
+        track("geolocation_granted");
         try { localStorage.setItem(LS_GEO, JSON.stringify(loc)); } catch {}
       },
-      () => setStatus("denied"),
+      () => { setStatus("denied"); track("geolocation_denied"); },
       { enableHighAccuracy: false, timeout: 10000 }
     );
   }, []);
 
   const reset = useCallback(() => {
     setLocation(null); setStatus("idle");
+    track("geolocation_reset");
     try { localStorage.removeItem(LS_GEO); } catch {}
   }, []);
 
@@ -314,9 +316,9 @@ function Lightbox({ images, startIdx, onClose }) {
 
   useEffect(() => {
     const onKey = e => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowLeft") { setIdx(i => (i - 1 + len) % len); }
-      if (e.key === "ArrowRight") { setIdx(i => (i + 1) % len); }
+      if (e.key === "Escape") { track("lightbox_close", { method: "key" }); onClose(); }
+      if (e.key === "ArrowLeft") { setIdx(i => (i - 1 + len) % len); track("lightbox_navigate", { direction: "prev", method: "key" }); }
+      if (e.key === "ArrowRight") { setIdx(i => (i + 1) % len); track("lightbox_navigate", { direction: "next", method: "key" }); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -367,15 +369,15 @@ function Lightbox({ images, startIdx, onClose }) {
           display: "flex", alignItems: "center", justifyContent: "center" }}>
           {scale > 1 ? "−" : "+"}
         </button>
-        <button onClick={onClose} style={{
+        <button onClick={() => { track("lightbox_close", { method: "button" }); onClose(); }} style={{
           background: "#fff2", color: "#fff", border: "none", borderRadius: "50%",
           width: 36, height: 36, cursor: "pointer", fontSize: 18,
           display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
       </div>
       {len > 1 && <>
-        <button onClick={e => { e.stopPropagation(); setIdx(i => (i - 1 + len) % len); }}
+        <button onClick={e => { e.stopPropagation(); setIdx(i => (i - 1 + len) % len); track("lightbox_navigate", { direction: "prev", method: "button" }); }}
           style={{ ...navBtn, left: 12 }}>‹</button>
-        <button onClick={e => { e.stopPropagation(); setIdx(i => (i + 1) % len); }}
+        <button onClick={e => { e.stopPropagation(); setIdx(i => (i + 1) % len); track("lightbox_navigate", { direction: "next", method: "button" }); }}
           style={{ ...navBtn, right: 12 }}>›</button>
       </>}
       <img src={images[idx]} alt="" draggable={false}
@@ -531,9 +533,10 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
   const imgs = park.images || [];
 
   const handleClose = useCallback(() => {
+    track("park_close", { park_id: park.id });
     setClosing(true);
     setTimeout(onClose, 250);
-  }, [onClose]);
+  }, [onClose, park.id]);
 
   return (
     <>
@@ -567,6 +570,7 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
             </div>
           </div>
           <a href={park.wikiUrl} target="_blank" rel="noreferrer"
+            onClick={() => track("wikipedia_open", { park_id: park.id })}
             style={{ display: "block", marginTop: 16, textAlign: "center", background: "#0f172a", color: "#fff",
               padding: "10px", borderRadius: 10, textDecoration: "none", fontSize: 13, fontWeight: 600 }}>
             🔗 Ver na Wikipedia
@@ -715,6 +719,12 @@ export default function App() {
 
   useEffect(() => { setUrlParams({ view, filter, page }); }, [view, filter, page]);
 
+  useEffect(() => {
+    if (!search) return;
+    const t = setTimeout(() => track("search", { query_length: search.length }), 600);
+    return () => clearTimeout(t);
+  }, [search]);
+
   // Route planning state (persisted in localStorage)
   const [routeMode, setRouteMode] = useState(() => {
     try { return localStorage.getItem("parques-route-mode") === "1"; } catch { return false; }
@@ -736,6 +746,7 @@ export default function App() {
   const startRouteMode = useCallback((initialParkId) => {
     setView("grid"); setFilter("todos"); setPage(1);
     setRouteMode(true);
+    track("route_mode_start", { trigger: initialParkId ? "long_press" : "manual" });
     if (initialParkId) setRouteIds(new Set([initialParkId]));
   }, []);
 
@@ -750,6 +761,7 @@ export default function App() {
   const toggleRouteMode = useCallback(() => {
     setRouteMode(prev => {
       const next = !prev;
+      track(next ? "route_mode_start" : "route_mode_exit", { trigger: "toggle" });
       if (prev) setRouteIds(new Set());
       return next;
     });
@@ -758,12 +770,15 @@ export default function App() {
   const toggleRouteId = useCallback((id) => {
     setRouteIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      const adding = !next.has(id);
+      if (adding) next.add(id); else next.delete(id);
+      track(adding ? "route_park_add" : "route_park_remove", { park_id: id, route_size: next.size });
       return next;
     });
   }, []);
 
   const clearRoute = useCallback(() => {
+    track("route_selection_clear");
     setRouteIds(new Set());
   }, []);
 
@@ -841,7 +856,7 @@ export default function App() {
             cursor: "pointer", fontWeight: 700, fontSize: 13, transition: "all .15s" }}>
             Favoritos <span style={{ opacity: .7 }}>({favs.size})</span>
           </button>
-          <button className="btn-press header-nav-pills" onClick={() => setView(v => v === "passaporte" ? "grid" : "passaporte")} style={{
+          <button className="btn-press header-nav-pills" onClick={() => setView(v => { const nv = v === "passaporte" ? "grid" : "passaporte"; track("view_change", { view: nv, source: "header" }); return nv; })} style={{
             border: "2px solid #fbbf24", background: view === "passaporte" ? "#fbbf24" : "transparent",
             color: view === "passaporte" ? "#14532d" : "#fbbf24", padding: "6px 16px", borderRadius: 20,
             cursor: "pointer", fontWeight: 700, fontSize: 13, transition: "all .15s" }}>
@@ -868,6 +883,7 @@ export default function App() {
 
       {view === "passaporte" ? (
         <PassaporteView visits={visits} parks={parksWithDist} onSelectPark={(p) => {
+          track("park_open", { park_id: p.id, park_name: p.name, source: "passaporte" });
           const wikiUrl = `https://pt.wikipedia.org/wiki/${encodeURIComponent(p.slug)}`;
           setSelected({ ...p, images: imgCache[p.slug] || [], wikiUrl });
         }} />
@@ -888,7 +904,7 @@ export default function App() {
               setViewingSavedRoute(r);
               setShowRoute(true);
             }}
-            onDelete={(id) => { deleteRouteDB(id).then(() => setSavedRoutes(prev => prev.filter(r => r.id !== id))); }}
+            onDelete={(id) => { deleteRouteDB(id).then(() => { track("saved_route_delete_confirmed", { route_id: id }); setSavedRoutes(prev => prev.filter(r => r.id !== id)); }); }}
           />
         </div>
       ) : (
@@ -902,19 +918,19 @@ export default function App() {
 
           {totalPages > 1 && (
             <div className="pagination" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 32, flexWrap: "wrap" }}>
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+              <button onClick={() => setPage(p => { const np = Math.max(1, p - 1); if (np !== p) track("page_change", { page: np, direction: "prev" }); return np; })} disabled={page === 1}
                 style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: page === 1 ? "default" : "pointer", opacity: page === 1 ? .4 : 1, fontWeight: 600 }}>← Anterior</button>
               {Array.from({ length: totalPages }, (_, i) => i + 1)
                 .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
                 .reduce((acc, n, i, arr) => {
                   if (i > 0 && n - arr[i - 1] > 1) acc.push(<span key={`e${n}`} style={{ padding: "0 4px", color: "#94a3b8" }}>…</span>);
-                  acc.push(<button key={n} onClick={() => setPage(n)} style={{
+                  acc.push(<button key={n} onClick={() => { setPage(n); track("page_change", { page: n, direction: "jump" }); }} style={{
                     width: 36, height: 36, borderRadius: 10, border: `1px solid ${n === page ? "#15803d" : "#e2e8f0"}`,
                     background: n === page ? "#15803d" : "#fff", color: n === page ? "#fff" : "#334155", cursor: "pointer", fontWeight: 700, fontSize: 14
                   }}>{n}</button>);
                   return acc;
                 }, [])}
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+              <button onClick={() => setPage(p => { const np = Math.min(totalPages, p + 1); if (np !== p) track("page_change", { page: np, direction: "next" }); return np; })} disabled={page === totalPages}
                 style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: page === totalPages ? "default" : "pointer", opacity: page === totalPages ? .4 : 1, fontWeight: 600 }}>Próxima →</button>
             </div>
           )}
@@ -939,7 +955,7 @@ export default function App() {
               fontSize: 13, fontWeight: 600 }}>
               Limpar
             </button>
-            <button onClick={() => setShowRoute(true)} style={{
+            <button onClick={() => { track("route_modal_open", { park_count: routeIds.size }); setShowRoute(true); }} style={{
               padding: "8px 20px", borderRadius: 20, border: "none",
               background: "#fff", color: "#14532d", cursor: "pointer",
               fontSize: 13, fontWeight: 700, boxShadow: "0 2px 8px #0003" }}>
@@ -970,6 +986,7 @@ export default function App() {
         view={view} filter={filter} routeMode={routeMode}
         favCount={favs.size} visitCount={Object.keys(visits).length}
         onNavigate={key => {
+          track("bottom_nav_click", { tab: key });
           if (key === "explorar") { setView("grid"); setFilter("todos"); setPage(1); if (routeMode) toggleRouteMode(); }
           else if (key === "favoritos") { setView("grid"); setFilter("favoritos"); setPage(1); if (routeMode) toggleRouteMode(); track("filter_change", { filter: "favoritos" }); }
           else if (key === "passaporte") { setView("passaporte"); if (routeMode) toggleRouteMode(); }

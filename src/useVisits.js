@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { getAllVisits, getVisit, saveVisit, deleteVisit } from "./db.mjs";
+import { track } from "./analytics.mjs";
 
 export function useVisits() {
   // Map of parkId -> visit data
@@ -19,15 +20,24 @@ export function useVisits() {
 
   const save = useCallback((parkId, data) => {
     return saveVisit(parkId, data).then(() => {
-      setVisits(prev => ({
-        ...prev,
-        [parkId]: { parkId, date: data.date, notes: data.notes || "", photos: data.photos || [] },
-      }));
+      setVisits(prev => {
+        const isUpdate = !!prev[parkId];
+        track(isUpdate ? "visit_update" : "visit_save", {
+          park_id: parkId,
+          has_notes: !!(data.notes && data.notes.trim()),
+          photo_count: (data.photos || []).length,
+        });
+        return {
+          ...prev,
+          [parkId]: { parkId, date: data.date, notes: data.notes || "", photos: data.photos || [] },
+        };
+      });
     });
   }, []);
 
   const remove = useCallback((parkId) => {
     return deleteVisit(parkId).then(() => {
+      track("visit_remove", { park_id: parkId });
       setVisits(prev => {
         const next = { ...prev };
         delete next[parkId];
