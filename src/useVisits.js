@@ -20,20 +20,18 @@ export function useVisits() {
 
   const save = useCallback((parkId, data) => {
     return saveVisit(parkId, data).then(() => {
-      setVisits(prev => {
-        const isUpdate = !!prev[parkId];
-        track(isUpdate ? "visit_update" : "visit_save", {
-          park_id: parkId,
-          has_notes: !!(data.notes && data.notes.trim()),
-          photo_count: (data.photos || []).length,
-        });
-        return {
-          ...prev,
-          [parkId]: { parkId, date: data.date, notes: data.notes || "", photos: data.photos || [] },
-        };
+      const isUpdate = !!visits[parkId];
+      track(isUpdate ? "visit_update" : "visit_save", {
+        park_id: parkId,
+        has_notes: !!(data.notes && data.notes.trim()),
+        photo_count: (data.photos || []).length,
       });
+      setVisits(prev => ({
+        ...prev,
+        [parkId]: { parkId, date: data.date, notes: data.notes || "", photos: data.photos || [] },
+      }));
     });
-  }, []);
+  }, [visits]);
 
   const remove = useCallback((parkId) => {
     return deleteVisit(parkId).then(() => {

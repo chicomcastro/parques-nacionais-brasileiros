@@ -63,6 +63,7 @@ const STATUS = {
 const PAGE = 12;
 const imgCache = {};
 const LS_KEY = "parques-favoritos";
+const impressionSeen = new Set();
 
 function loadFavorites() {
   try { return new Set(JSON.parse(localStorage.getItem(LS_KEY) || "[]")); }
@@ -78,27 +79,33 @@ function useFavorites() {
   const toggle = useCallback((id) => {
     setFavs(prev => {
       const next = new Set(prev);
-      const adding = !next.has(id);
-      if (adding) next.add(id); else next.delete(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       saveFavorites(next);
-      track(adding ? "favorite_add" : "favorite_remove", { park_id: id });
       return next;
     });
   }, []);
-  return { favs, toggle };
+  const toggleWithTrack = useCallback((id) => {
+    const adding = !favs.has(id);
+    track(adding ? "favorite_add" : "favorite_remove", { park_id: id });
+    toggle(id);
+  }, [favs, toggle]);
+  return { favs, toggle: toggleWithTrack };
 }
 
 function FavButton({ active, onClick, size = 24 }) {
   return (
     <button onClick={onClick} style={{
       background: "none", border: "none", cursor: "pointer", padding: 0,
-      fontSize: size, lineHeight: 1, filter: active ? "none" : "grayscale(1) opacity(.5)",
-      transition: "transform .15s, filter .15s",
+      lineHeight: 1, display: "inline-flex", alignItems: "center", justifyContent: "center",
+      color: active ? "#ef4444" : "#cbd5e1",
+      transition: "transform .15s, color .15s",
     }}
     onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.2)"; }}
     onMouseLeave={e => { e.currentTarget.style.transform = ""; }}
     title={active ? "Remover dos favoritos" : "Adicionar aos favoritos"}>
-      {active ? "❤️" : "🤍"}
+      <span className="material-icons-round" style={{ fontSize: size }}>
+        {active ? "favorite" : "favorite_border"}
+      </span>
     </button>
   );
 }
@@ -175,9 +182,24 @@ function useParkImages(slug) {
   return { images: images || [], done };
 }
 
-function Carousel({ images, height, alt, onClickImage }) {
+function Carousel({ images, height, alt, onClickImage, compact = false }) {
   const [idx, setIdx] = useState(0);
+  const [drag, setDrag] = useState(0);
+  const [width, setWidth] = useState(0);
   const len = images.length;
+  const touchStart = useRef(null);
+  const touchMoved = useRef(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const el = containerRef.current;
+    const update = () => setWidth(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const prev = useCallback((e) => {
     e.stopPropagation();
@@ -189,28 +211,85 @@ function Carousel({ images, height, alt, onClickImage }) {
     setIdx(i => (i + 1) % len);
   }, [len]);
 
+  const onTouchStart = useCallback((e) => {
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+    touchMoved.current = false;
+  }, []);
+
+  const onTouchMove = useCallback((e) => {
+    if (!touchStart.current) return;
+    const t = e.touches[0];
+    const dx = t.clientX - touchStart.current.x;
+    const dy = t.clientY - touchStart.current.y;
+    if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+      touchMoved.current = true;
+      setDrag(dx);
+    }
+  }, []);
+
+  const onTouchEnd = useCallback((e) => {
+    if (!touchStart.current) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStart.current.x;
+    const dy = t.clientY - touchStart.current.y;
+    touchStart.current = null;
+    setDrag(0);
+    if (len > 1 && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) setIdx(i => (i + 1) % len);
+      else setIdx(i => (i - 1 + len) % len);
+    }
+  }, [len]);
+
+  const onImgClick = useCallback(() => {
+    if (touchMoved.current) { touchMoved.current = false; return; }
+    onClickImage?.(idx);
+  }, [idx, onClickImage]);
+
   if (len === 0) return (
     <div style={{ height, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#94a3b8", fontSize: 13 }}>
       <span style={{ fontSize: 34 }}>🌿</span><span style={{ marginTop: 6 }}>Sem foto</span>
     </div>
   );
 
+  const hitWidth = compact ? 40 : 56;
+  const circleSize = compact ? 24 : 32;
   const btnStyle = {
-    position: "absolute", top: "50%", transform: "translateY(-50%)",
-    background: "#000a", color: "#fff", border: "none", borderRadius: "50%",
-    width: 28, height: 28, cursor: "pointer", fontSize: 14,
+    position: "absolute", top: 0, bottom: 0,
+    background: "transparent", border: "none", cursor: "pointer",
+    width: hitWidth, padding: 0, zIndex: 2,
     display: "flex", alignItems: "center", justifyContent: "center",
-    zIndex: 2, opacity: 0.8,
+    WebkitTapHighlightColor: "transparent",
+  };
+  const btnInner = {
+    width: circleSize, height: circleSize, borderRadius: "50%",
+    background: "#000a", color: "#fff", fontSize: compact ? 13 : 16,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    opacity: 0.8,
   };
 
+  const dragging = drag !== 0;
+  const offset = width ? -idx * width + drag : 0;
+
   return (
-    <div style={{ height, position: "relative", overflow: "hidden" }}
-      onClick={() => onClickImage?.(idx)}>
-      <img src={images[idx]} alt={alt} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
-        cursor: onClickImage ? "zoom-in" : "default" }} />
+    <div ref={containerRef} style={{ height, position: "relative", overflow: "hidden", touchAction: "pan-y" }}
+      onClick={onImgClick}
+      onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+      <div style={{
+        display: "flex", height: "100%",
+        transform: `translate3d(${offset}px, 0, 0)`,
+        transition: dragging ? "none" : "transform .28s cubic-bezier(.2,.8,.2,1)",
+        willChange: "transform",
+      }}>
+        {images.map((src, i) => (
+          <img key={i} src={src} alt={i === idx ? alt : ""} draggable={false}
+            style={{ width: width || "100%", height: "100%", objectFit: "cover", display: "block",
+              cursor: onClickImage ? "zoom-in" : "default", userSelect: "none", pointerEvents: "none", flexShrink: 0 }} />
+        ))}
+      </div>
       {len > 1 && <>
-        <button onClick={prev} style={{ ...btnStyle, left: 6 }}>‹</button>
-        <button onClick={next} style={{ ...btnStyle, right: 6 }}>›</button>
+        <button aria-label="Anterior" onClick={prev} style={{ ...btnStyle, left: 0 }}><span style={btnInner}>‹</span></button>
+        <button aria-label="Próximo" onClick={next} style={{ ...btnStyle, right: 0 }}><span style={btnInner}>›</span></button>
         <div style={{ position: "absolute", bottom: 6, left: "50%", transform: "translateX(-50%)",
           display: "flex", gap: 4, zIndex: 2 }}>
           {images.map((_, i) => (
@@ -230,32 +309,63 @@ function Carousel({ images, height, alt, onClickImage }) {
   );
 }
 
-function ParkCard({ park, onClick, isFav, onToggleFav, isVisited, routeMode, routeSelected, onRouteToggle, onLongPress }) {
+function ParkCard({ park, onClick, isFav, onToggleFav, isVisited, routeMode, routeSelected, onRouteToggle, onLongPress, position }) {
   const { images, done } = useParkImages(park.slug);
   const meta = STATUS[park.status];
   const wikiUrl = `https://pt.wikipedia.org/wiki/${encodeURIComponent(park.slug)}`;
   const longPressTimer = useRef(null);
+  const cardRef = useRef(null);
+
+  useEffect(() => {
+    if (impressionSeen.has(park.id)) return;
+    const el = cardRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && !impressionSeen.has(park.id)) {
+        impressionSeen.add(park.id);
+        track("park_impression", { park_id: park.id, park_name: park.name, position });
+        io.disconnect();
+      }
+    }, { threshold: 0.5 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [park.id, park.name, position]);
+  const pointerStart = useRef(null);
 
   const handleClick = () => {
     if (routeMode) { onRouteToggle(park.id); }
     else { onClick({ ...park, images, wikiUrl }); }
   };
 
-  const handlePointerDown = useCallback(() => {
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+  }, []);
+
+  const handlePointerDown = useCallback((e) => {
     if (routeMode) return;
+    pointerStart.current = { x: e.clientX, y: e.clientY };
     longPressTimer.current = setTimeout(() => {
       longPressTimer.current = null;
       if (onLongPress) onLongPress(park.id);
     }, 500);
   }, [routeMode, park.id, onLongPress]);
 
+  const handlePointerMove = useCallback((e) => {
+    if (!pointerStart.current || !longPressTimer.current) return;
+    const dx = e.clientX - pointerStart.current.x;
+    const dy = e.clientY - pointerStart.current.y;
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) cancelLongPress();
+  }, [cancelLongPress]);
+
   const handlePointerUp = useCallback(() => {
-    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
-  }, []);
+    cancelLongPress();
+    pointerStart.current = null;
+  }, [cancelLongPress]);
 
   return (
-    <div onClick={handleClick} className="card-enter btn-press"
+    <div ref={cardRef} onClick={handleClick} className="card-enter btn-press"
       onPointerDown={handlePointerDown} onPointerUp={handlePointerUp}
+      onPointerMove={handlePointerMove} onPointerCancel={handlePointerUp}
       onPointerLeave={handlePointerUp}
       style={{ borderRadius: 14, overflow: "hidden", cursor: "pointer", background: "#fff",
         boxShadow: routeSelected ? "0 0 0 3px #15803d" : "0 2px 12px #0001",
@@ -275,7 +385,7 @@ function ParkCard({ park, onClick, isFav, onToggleFav, isVisited, routeMode, rou
         {!done && <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ width: 28, height: 28, border: "3px solid #cbd5e1", borderTopColor: "#64748b", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
         </div>}
-        {done && <Carousel images={images} height="100%" alt={park.name} />}
+        {done && <Carousel images={images} height="100%" alt={park.name} compact />}
         <div style={{ position: "absolute", top: 8, right: 8, background: meta.bg, color: meta.color,
           fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 20, border: `1px solid ${meta.color}44`, zIndex: 3 }}>
           {meta.icon} {meta.label}
@@ -412,7 +522,7 @@ function fileToBase64(file) {
 
 function VisitSection({ parkId, visit, onSave, onRemove }) {
   const today = new Date().toISOString().slice(0, 10);
-  const [editing, setEditing] = useState(!visit);
+  const [editing, setEditing] = useState(false);
   const [date, setDate] = useState(visit?.date || today);
   const [notes, setNotes] = useState(visit?.notes || "");
   const [photos, setPhotos] = useState(visit?.photos || []);
@@ -450,9 +560,24 @@ function VisitSection({ parkId, visit, onSave, onRemove }) {
     fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box",
   };
 
+  if (!visit && !editing) {
+    return (
+      <button onClick={() => setEditing(true)} style={{
+        width: "100%", marginTop: 4, padding: "14px",
+        background: "linear-gradient(135deg,#14532d,#15803d)", color: "#fff",
+        border: "none", borderRadius: 12, cursor: "pointer",
+        fontSize: 15, fontWeight: 700, boxShadow: "0 4px 14px #15803d44",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+      }}>
+        <span className="material-icons-round" style={{ fontSize: 20 }}>check_circle</span>
+        Marcar como visitado
+      </button>
+    );
+  }
+
   if (visit && !editing) {
     return (
-      <div style={{ marginTop: 16, background: "#f0fdf4", borderRadius: 12, padding: 16, border: "1px solid #bbf7d0" }}>
+      <div style={{ background: "#f0fdf4", borderRadius: 12, padding: 16, border: "1px solid #bbf7d0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
           <span style={{ fontWeight: 700, fontSize: 14, color: "#15803d" }}>&#10003; Visitado em {visit.date}</span>
           <div style={{ display: "flex", gap: 6 }}>
@@ -477,7 +602,7 @@ function VisitSection({ parkId, visit, onSave, onRemove }) {
   }
 
   return (
-    <div style={{ marginTop: 16, background: "#f8fafc", borderRadius: 12, padding: 16, border: "1px solid #e2e8f0" }}>
+    <div style={{ background: "#f8fafc", borderRadius: 12, padding: 16, border: "1px solid #e2e8f0" }}>
       <div style={{ fontWeight: 700, fontSize: 14, color: "#334155", marginBottom: 10 }}>
         {visit ? "Editar visita" : "Marcar como visitado"}
       </div>
@@ -516,11 +641,9 @@ function VisitSection({ parkId, visit, onSave, onRemove }) {
           padding: "8px", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
           {saving ? "Salvando..." : "Salvar visita"}
         </button>
-        {visit && (
-          <button onClick={() => setEditing(false)} style={{
-            background: "#e2e8f0", border: "none", borderRadius: 8, padding: "8px 14px",
-            cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#475569" }}>Cancelar</button>
-        )}
+        <button onClick={() => setEditing(false)} style={{
+          background: "#e2e8f0", border: "none", borderRadius: 8, padding: "8px 14px",
+          cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#475569" }}>Cancelar</button>
       </div>
     </div>
   );
@@ -530,6 +653,7 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
   const meta = STATUS[park.status];
   const [lightboxIdx, setLightboxIdx] = useState(null);
   const [closing, setClosing] = useState(false);
+  const [shareMsg, setShareMsg] = useState("");
   const imgs = park.images || [];
 
   const handleClose = useCallback(() => {
@@ -537,6 +661,19 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
     setClosing(true);
     setTimeout(onClose, 250);
   }, [onClose, park.id]);
+
+  const handleShare = useCallback(async () => {
+    const url = `https://chicomcastro.github.io/parques-nacionais-brasileiros/?park=${park.id}`;
+    const text = `🌳 ${park.name} (${park.state}) — Parque Nacional`;
+    if (navigator.share) {
+      try { await navigator.share({ title: park.name, text, url }); track("park_share", { park_id: park.id, method: "native" }); } catch {}
+    } else {
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      track("park_share", { park_id: park.id, method: "clipboard" });
+      setShareMsg("Link copiado!");
+      setTimeout(() => setShareMsg(""), 2000);
+    }
+  }, [park.id, park.name, park.state]);
 
   return (
     <>
@@ -557,6 +694,9 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
             <span style={{ flexShrink: 0, background: meta.bg, color: meta.color, fontSize: 12, fontWeight: 700,
               padding: "4px 10px", borderRadius: 20, border: `1px solid ${meta.color}44` }}>{meta.icon} {meta.label}</span>
           </div>
+          <div style={{ marginBottom: 16 }}>
+            <VisitSection parkId={park.id} visit={visit} onSave={onSaveVisit} onRemove={onRemoveVisit} />
+          </div>
           <div className="modal-info-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {[["🗺️ Estado", park.state], ["📏 Distância", `${park.dist.toLocaleString("pt-BR")} km`], ["🚌 Acesso", park.access], ["🎫 Entrada", park.entrada], ["🕐 Horário", park.horario], ["📅 Melhor época", park.melhorEpoca]].map(([k, v]) => (
               <div key={k} style={{ background: "#f8fafc", borderRadius: 12, padding: "10px 14px" }}>
@@ -569,13 +709,23 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
               <div style={{ fontSize: 14, fontWeight: 600, color: "#334155" }}>{park.trilhas?.length > 0 ? park.trilhas.join(", ") : "Sem trilhas cadastradas"}</div>
             </div>
           </div>
-          <a href={park.wikiUrl} target="_blank" rel="noreferrer"
-            onClick={() => track("wikipedia_open", { park_id: park.id })}
-            style={{ display: "block", marginTop: 16, textAlign: "center", background: "#0f172a", color: "#fff",
-              padding: "10px", borderRadius: 10, textDecoration: "none", fontSize: 13, fontWeight: 600 }}>
-            🔗 Ver na Wikipedia
-          </a>
-          <VisitSection parkId={park.id} visit={visit} onSave={onSaveVisit} onRemove={onRemoveVisit} />
+          {shareMsg && <div style={{ textAlign: "center", color: "#15803d", fontSize: 12, fontWeight: 600, marginTop: 12 }}>{shareMsg}</div>}
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <a href={park.wikiUrl} target="_blank" rel="noreferrer"
+              onClick={() => track("wikipedia_open", { park_id: park.id })}
+              style={{ flex: 1, textAlign: "center", background: "#fff", color: "#475569",
+                padding: "10px", borderRadius: 10, textDecoration: "none", fontSize: 13, fontWeight: 600,
+                border: "1px solid #e2e8f0",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <span className="material-icons-round" style={{ fontSize: 18 }}>link</span> Wikipedia
+            </a>
+            <button onClick={handleShare} style={{
+              flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #e2e8f0",
+              background: "#fff", color: "#475569", cursor: "pointer", fontSize: 13, fontWeight: 600,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <span className="material-icons-round" style={{ fontSize: 18 }}>share</span> Compartilhar
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -706,18 +856,44 @@ function setUrlParams(params) {
   window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
 }
 
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const on = e => setMobile(e.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return mobile;
+}
+
 export default function App() {
   const initial = getUrlParams();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState(initial.filter);
   const [page, setPage] = useState(initial.page);
+  const isMobile = useIsMobile();
+  const sentinelRef = useRef(null);
   const [selected, setSelected] = useState(null);
   const [view, setView] = useState(initial.view);
   const { favs, toggle: toggleFav } = useFavorites();
   const { visits, save: saveVisit, remove: removeVisit, isVisited } = useVisits();
   const geo = useGeolocation();
 
+  const initialParkId = useRef(parseInt(new URLSearchParams(window.location.search).get("park")) || null);
+
   useEffect(() => { setUrlParams({ view, filter, page }); }, [view, filter, page]);
+
+  useEffect(() => {
+    if (!initialParkId.current) return;
+    const p = PARKS.find(x => x.id === initialParkId.current);
+    initialParkId.current = null;
+    if (!p) return;
+    const wikiUrl = `https://pt.wikipedia.org/wiki/${encodeURIComponent(p.slug)}`;
+    setSelected({ ...p, images: imgCache[p.slug] || [], wikiUrl });
+    track("park_open", { park_id: p.id, park_name: p.name, source: "deep_link" });
+  }, []);
 
   useEffect(() => {
     if (!search) return;
@@ -759,23 +935,22 @@ export default function App() {
   }, [routeIds]);
 
   const toggleRouteMode = useCallback(() => {
+    track(routeMode ? "route_mode_exit" : "route_mode_start", { trigger: "toggle" });
     setRouteMode(prev => {
-      const next = !prev;
-      track(next ? "route_mode_start" : "route_mode_exit", { trigger: "toggle" });
       if (prev) setRouteIds(new Set());
-      return next;
+      return !prev;
     });
-  }, []);
+  }, [routeMode]);
 
   const toggleRouteId = useCallback((id) => {
+    const adding = !routeIds.has(id);
+    track(adding ? "route_park_add" : "route_park_remove", { park_id: id, route_size: adding ? routeIds.size + 1 : routeIds.size - 1 });
     setRouteIds(prev => {
       const next = new Set(prev);
-      const adding = !next.has(id);
-      if (adding) next.add(id); else next.delete(id);
-      track(adding ? "route_park_add" : "route_park_remove", { park_id: id, route_size: next.size });
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
-  }, []);
+  }, [routeIds]);
 
   const clearRoute = useCallback(() => {
     track("route_selection_clear");
@@ -800,7 +975,29 @@ export default function App() {
   }), [parksWithDist, search, filter, favs]);
 
   const totalPages = Math.ceil(filtered.length / PAGE);
-  const visible = filtered.slice((page - 1) * PAGE, page * PAGE);
+  const visible = isMobile
+    ? filtered.slice(0, page * PAGE)
+    : filtered.slice((page - 1) * PAGE, page * PAGE);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    if (page >= totalPages) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) {
+        setPage(p => {
+          const np = Math.min(totalPages, p + 1);
+          if (np !== p) track("page_change", { page: np, direction: "infinite" });
+          return np;
+        });
+      }
+    }, { rootMargin: "400px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [isMobile, page, totalPages, view]);
+
+  useEffect(() => { if (isMobile) setPage(1); }, [filter, search, isMobile]);
   const counts = {
     aberto: PARKS.filter(p => p.status === "aberto").length,
     limitado: PARKS.filter(p => p.status === "limitado").length,
@@ -912,11 +1109,17 @@ export default function App() {
           {visible.length === 0
             ? <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}><div style={{ fontSize: 48 }}>🌿</div><p>Nenhum parque encontrado</p></div>
             : <div className="parks-grid" style={{ display: "grid" }}>
-                {visible.map(p => <ParkCard key={p.id} park={p} onClick={p => { track("park_open", { park_id: p.id, park_name: p.name }); setSelected(p); }} isFav={favs.has(p.id)} onToggleFav={toggleFav} isVisited={isVisited(p.id)}
+                {visible.map((p, i) => <ParkCard key={p.id} park={p} position={i} onClick={p => { track("park_open", { park_id: p.id, park_name: p.name, position: i }); setSelected(p); }} isFav={favs.has(p.id)} onToggleFav={toggleFav} isVisited={isVisited(p.id)}
                   routeMode={routeMode} routeSelected={routeIds.has(p.id)} onRouteToggle={toggleRouteId} onLongPress={startRouteMode} />)}
               </div>}
 
-          {totalPages > 1 && (
+          {isMobile && page < totalPages && (
+            <div ref={sentinelRef} style={{ display: "flex", justifyContent: "center", padding: 24 }}>
+              <div style={{ width: 24, height: 24, border: "3px solid #cbd5e1", borderTopColor: "#15803d", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+            </div>
+          )}
+
+          {!isMobile && totalPages > 1 && (
             <div className="pagination" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 32, flexWrap: "wrap" }}>
               <button onClick={() => setPage(p => { const np = Math.max(1, p - 1); if (np !== p) track("page_change", { page: np, direction: "prev" }); return np; })} disabled={page === 1}
                 style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: page === 1 ? "default" : "pointer", opacity: page === 1 ? .4 : 1, fontWeight: 600 }}>← Anterior</button>

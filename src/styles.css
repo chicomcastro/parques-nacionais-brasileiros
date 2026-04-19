@@ -99,7 +99,8 @@ body {
   min-width: 0;
 }
 
-.bottom-nav-btn:active { transform: scale(0.92); }
+.bottom-nav-btn:active .bottom-nav-icon { transform: scale(0.88); }
+.bottom-nav-btn.active:active .bottom-nav-icon { transform: translateY(-2px) scale(1); }
 
 .bottom-nav-btn.active {
   color: #15803d;
