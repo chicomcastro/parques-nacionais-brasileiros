@@ -199,7 +199,7 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
     setTimeout(cb || onClose, 250);
   }, [onClose]);
 
-  const [customOrder, setCustomOrder] = useState(null);
+  const [customOrder, setCustomOrder] = useState(editingRoute?.parkIds || null);
 
   const optimized = useMemo(() => optimizeRoute(parks, startLat, startLng), [parks, startLat, startLng]);
 
