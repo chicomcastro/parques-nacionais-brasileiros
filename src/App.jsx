@@ -1035,7 +1035,16 @@ export default function App() {
             </button>
           )}
           {geo.status === "denied" && (
-            <span style={{ fontSize: 12, opacity: .7 }}>📍 Localização negada · usando SP</span>
+            <div>
+              <button className="btn-press" onClick={() => { geo.request(); track("geolocation_retry"); }} style={{
+                background: "#ffffff22", border: "1px solid #fff6", color: "#fff",
+                padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                📍 Tentar novamente · usando SP
+              </button>
+              <div style={{ fontSize: 11, opacity: .7, marginTop: 6 }}>
+                Se não aparecer o pedido, libere nas permissões do navegador (🔒 na barra de endereço)
+              </div>
+            </div>
           )}
         </div>
         <div className="status-filters" style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
