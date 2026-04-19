@@ -2,58 +2,183 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#14532d" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Parques BR" />
-    <title>Parques Nacionais do Brasil</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Icons+Round" />
-    <link rel="manifest" href="/parques-nacionais-brasileiros/manifest.json" />
-    <link rel="apple-touch-icon" href="/parques-nacionais-brasileiros/icon-192.png" />
+    <meta name="description" content="Descubra, planeje e colecione os 74 parques nacionais do Brasil. Roteiros otimizados, passaporte digital e informações práticas em um só lugar." />
+    <meta property="og:title" content="Parques Nacionais do Brasil" />
+    <meta property="og:description" content="Descubra, planeje e colecione os 74 parques nacionais brasileiros." />
+    <meta property="og:type" content="website" />
+    <title>Parques Nacionais do Brasil — Descubra, planeje, colecione</title>
     <style>
-      html, body { margin: 0; padding: 0; background: #14532d; }
-      #splash-initial {
-        position: fixed; inset: 0; z-index: 9999;
-        background: linear-gradient(135deg, #14532d, #166534, #15803d);
-        display: flex; flex-direction: column;
-        align-items: center; justify-content: center;
-        animation: splashOutInitial 1.2s ease 0.4s forwards;
-        font-family: -apple-system, system-ui, sans-serif;
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; color: #1e293b; -webkit-font-smoothing: antialiased; }
+      body { background: #f0fdf4; }
+      a { color: inherit; }
+
+      .hero {
+        background: linear-gradient(135deg, #14532d 0%, #166534 50%, #15803d 100%);
+        color: #fff;
+        padding: 80px 24px 100px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
       }
-      #splash-initial .logo {
-        font-size: 72px;
-        animation: breathe 1.4s ease-in-out infinite;
+      .hero::before {
+        content: ""; position: absolute; inset: 0;
+        background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.08), transparent 50%),
+                    radial-gradient(circle at 70% 80%, rgba(255,255,255,.06), transparent 50%);
       }
-      #splash-initial .title {
-        color: #fff; font-size: 18px; font-weight: 700;
-        margin-top: 12px; letter-spacing: -0.3px; opacity: 0.95;
+      .hero-inner { position: relative; max-width: 720px; margin: 0 auto; }
+      .logo { font-size: 64px; margin-bottom: 16px; display: inline-block; animation: float 3s ease-in-out infinite; }
+      @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+      h1 { font-size: clamp(32px, 6vw, 52px); font-weight: 800; letter-spacing: -1px; margin: 0 0 16px; line-height: 1.1; }
+      .tagline { font-size: clamp(16px, 2.5vw, 20px); opacity: .9; margin: 0 0 36px; line-height: 1.5; font-weight: 400; }
+      .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+      .btn {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 14px 28px; border-radius: 999px;
+        font-size: 16px; font-weight: 700;
+        text-decoration: none; transition: transform .15s, box-shadow .15s;
+        cursor: pointer; border: none;
       }
-      @keyframes breathe {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.08); }
+      .btn-primary { background: #fff; color: #14532d; box-shadow: 0 6px 24px rgba(0,0,0,.2); }
+      .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(0,0,0,.25); }
+      .btn-secondary { background: transparent; color: #fff; border: 2px solid #ffffff66; }
+      .btn-secondary:hover { background: #ffffff1a; border-color: #fff; }
+
+      .stats { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; margin-top: 48px; }
+      .stat { text-align: center; }
+      .stat-num { font-size: 36px; font-weight: 800; letter-spacing: -1px; }
+      .stat-label { font-size: 13px; opacity: .8; margin-top: 4px; }
+
+      section { padding: 72px 24px; max-width: 1100px; margin: 0 auto; }
+      h2 { font-size: clamp(26px, 4vw, 36px); font-weight: 800; letter-spacing: -.5px; margin: 0 0 12px; text-align: center; color: #14532d; }
+      .section-lead { text-align: center; color: #475569; max-width: 620px; margin: 0 auto 48px; font-size: 16px; line-height: 1.5; }
+
+      .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+      .feature {
+        background: #fff; border-radius: 16px; padding: 28px 24px;
+        box-shadow: 0 2px 12px rgba(0,0,0,.05);
+        transition: transform .2s, box-shadow .2s;
       }
-      @keyframes splashOutInitial {
-        to { opacity: 0; visibility: hidden; pointer-events: none; }
+      .feature:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,.08); }
+      .feature-icon {
+        width: 48px; height: 48px; border-radius: 12px;
+        background: #dcfce7; color: #15803d;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 24px; margin-bottom: 16px;
       }
+      .feature h3 { font-size: 18px; font-weight: 700; margin: 0 0 8px; color: #1e293b; }
+      .feature p { font-size: 14px; color: #64748b; line-height: 1.5; margin: 0; }
+
+      .why {
+        background: #fff;
+        padding: 72px 24px;
+      }
+      .why-inner { max-width: 760px; margin: 0 auto; }
+      .why p { font-size: 17px; line-height: 1.7; color: #334155; margin: 0 0 16px; }
+      .why p strong { color: #14532d; }
+
+      .final-cta {
+        text-align: center;
+        padding: 80px 24px 100px;
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+      }
+      .final-cta h2 { margin-bottom: 24px; }
+
+      footer {
+        text-align: center; padding: 32px 24px;
+        color: #94a3b8; font-size: 13px;
+        border-top: 1px solid #e2e8f0; background: #fff;
+      }
+      footer a { color: #15803d; text-decoration: none; font-weight: 600; }
+      footer a:hover { text-decoration: underline; }
     </style>
   </head>
   <body>
-    <div id="splash-initial">
-      <div class="logo">🌳</div>
-      <div class="title">Parques Nacionais</div>
-    </div>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <header class="hero">
+      <div class="hero-inner">
+        <div class="logo">🌳</div>
+        <h1>Parques Nacionais do Brasil</h1>
+        <p class="tagline">Descubra, planeje e colecione os 74 parques nacionais brasileiros. Em um só app.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="/parques-nacionais-brasileiros/app/">
+            Abrir o app →
+          </a>
+          <a class="btn btn-secondary" href="#features">Ver recursos</a>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="stat-num">74</div><div class="stat-label">parques mapeados</div></div>
+          <div class="stat"><div class="stat-num">100%</div><div class="stat-label">grátis, sem login</div></div>
+          <div class="stat"><div class="stat-num">PWA</div><div class="stat-label">funciona offline</div></div>
+        </div>
+      </div>
+    </header>
+
+    <section id="features">
+      <h2>O que dá pra fazer</h2>
+      <p class="section-lead">Um app enxuto, focado em ajudar você a explorar os parques — não em te prender na tela.</p>
+      <div class="features">
+        <div class="feature">
+          <div class="feature-icon">🗺️</div>
+          <h3>Descubra por distância</h3>
+          <p>Todos os 74 parques ordenados do mais perto ao mais distante. Use sua localização ou parta de São Paulo.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🛂</div>
+          <h3>Passaporte digital</h3>
+          <p>Marque parques visitados com data, notas e fotos. Acompanhe seu progresso rumo aos 74.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🧭</div>
+          <h3>Roteiros otimizados</h3>
+          <p>Selecione vários parques, veja a rota mais curta, estime dias de viagem e abra direto no Google Maps.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">ℹ️</div>
+          <h3>Info prática</h3>
+          <p>Status de abertura, entrada, horário, melhor época, trilhas principais. Tudo curado parque a parque.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">❤️</div>
+          <h3>Favoritos e filtros</h3>
+          <p>Salve parques que quer visitar. Filtre por status (aberto, limitado, fechado) ou só os seus favoritos.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">📴</div>
+          <h3>Offline-first</h3>
+          <p>Instala como app no celular. Funciona mesmo sem internet depois do primeiro carregamento.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="why">
+      <div class="why-inner">
+        <h2>Por que não o Google Maps?</h2>
+        <p>O Maps é ótimo pra chegar num lugar que você <em>já escolheu</em>. Ele não te ajuda a descobrir um conjunto curado, acompanhar progresso de uma coleção ou planejar um roteiro multi-parque.</p>
+        <p><strong>Parques Nacionais do Brasil</strong> é feito pra jornada, não só pro destino. É a diferença entre o IMDB e o Letterboxd — ambos listam filmes, mas só um te ajuda a construir sua história com eles.</p>
+      </div>
+    </section>
+
+    <section class="final-cta">
+      <h2>Pronto pra começar sua coleção?</h2>
+      <a class="btn btn-primary" style="background:#14532d;color:#fff;" href="/parques-nacionais-brasileiros/app/">
+        Abrir o app →
+      </a>
+    </section>
+
+    <footer>
+      Feito com 🌿 · <a href="https://github.com/chicomcastro/parques-nacionais-brasileiros">Código aberto no GitHub</a> · Dados: Wikipedia
+    </footer>
+
     <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/parques-nacionais-brasileiros/sw.js');
-      }
-      // Remove splash after animation completes
-      setTimeout(() => {
-        const s = document.getElementById('splash-initial');
-        if (s) s.remove();
-      }, 1800);
+      // Deep link: if someone arrives with ?park=X, forward to the app
+      (function() {
+        var p = new URLSearchParams(window.location.search);
+        if (p.get('park')) {
+          window.location.replace('/parques-nacionais-brasileiros/app/?' + p.toString());
+        }
+      })();
     </script>
   </body>
 </html>

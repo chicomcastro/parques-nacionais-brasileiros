@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#14532d" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Parques BR" />
+    <title>Parques Nacionais do Brasil</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Icons+Round" />
+    <link rel="manifest" href="/parques-nacionais-brasileiros/manifest.json" />
+    <link rel="apple-touch-icon" href="/parques-nacionais-brasileiros/icon-192.png" />
+    <style>
+      html, body { margin: 0; padding: 0; background: #14532d; }
+      #splash-initial {
+        position: fixed; inset: 0; z-index: 9999;
+        background: linear-gradient(135deg, #14532d, #166534, #15803d);
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        animation: splashOutInitial 1.2s ease 0.4s forwards;
+        font-family: -apple-system, system-ui, sans-serif;
+      }
+      #splash-initial .logo {
+        font-size: 72px;
+        animation: breathe 1.4s ease-in-out infinite;
+      }
+      #splash-initial .title {
+        color: #fff; font-size: 18px; font-weight: 700;
+        margin-top: 12px; letter-spacing: -0.3px; opacity: 0.95;
+      }
+      @keyframes breathe {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.08); }
+      }
+      @keyframes splashOutInitial {
+        to { opacity: 0; visibility: hidden; pointer-events: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="splash-initial">
+      <div class="logo">🌳</div>
+      <div class="title">Parques Nacionais</div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/parques-nacionais-brasileiros/sw.js');
+      }
+      setTimeout(() => {
+        const s = document.getElementById('splash-initial');
+        if (s) s.remove();
+      }, 1800);
+    </script>
+  </body>
+</html>

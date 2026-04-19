@@ -158,7 +158,7 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
   }, [routeId, ordered.length, animateClose, onClear]);
 
   const handleShare = useCallback(async () => {
-    const text = `🌳 Meu roteiro de parques nacionais!\n\n${ordered.map((p, i) => `${i + 1}. ${p.name} (${p.state})`).join("\n")}\n\n📏 ${total.toLocaleString("pt-BR")} km · ~${days} dias\n\n🔗 https://chicomcastro.github.io/parques-nacionais-brasileiros/`;
+    const text = `🌳 Meu roteiro de parques nacionais!\n\n${ordered.map((p, i) => `${i + 1}. ${p.name} (${p.state})`).join("\n")}\n\n📏 ${total.toLocaleString("pt-BR")} km · ~${days} dias\n\n🔗 https://chicomcastro.github.io/parques-nacionais-brasileiros/app/`;
     if (navigator.share) {
       try { await navigator.share({ title: "Meu Roteiro de Parques", text }); track("route_share", { method: "native", park_count: ordered.length, total_km: total }); } catch {}
     } else {

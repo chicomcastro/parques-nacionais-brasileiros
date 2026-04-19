@@ -663,7 +663,7 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
   }, [onClose, park.id]);
 
   const handleShare = useCallback(async () => {
-    const url = `https://chicomcastro.github.io/parques-nacionais-brasileiros/?park=${park.id}`;
+    const url = `https://chicomcastro.github.io/parques-nacionais-brasileiros/app/?park=${park.id}`;
     const text = `🌳 ${park.name} (${park.state}) — Parque Nacional`;
     if (navigator.share) {
       try { await navigator.share({ title: park.name, text, url }); track("park_share", { park_id: park.id, method: "native" }); } catch {}
