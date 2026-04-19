@@ -2,7 +2,7 @@
 
 Guia interativo dos 74 parques nacionais brasileiros: descubra por distância, marque os que visitou, monte roteiros multi-parque e instale como app no celular.
 
-- **Landing**: https://chicomcastro.github.io/parques-nacionais-brasileiros/
+- **Site**: https://chicomcastro.github.io/parques-nacionais-brasileiros/
 - **App**: https://chicomcastro.github.io/parques-nacionais-brasileiros/app/
 
 ## Diferenciais
@@ -21,7 +21,7 @@ O app cobre o que o Google Maps não resolve bem: **descobrir e colecionar um co
 
 ## Stack
 
-- React 19 + Vite (multi-page build: landing estática + SPA)
+- React 19 + Vite (build multi-página: página inicial estática + aplicativo)
 - Leaflet + OpenStreetMap para o mapa de roteiros
 - IndexedDB para persistência local de visitas e roteiros
 - Amplitude para analytics (autocapture + eventos customizados)
@@ -31,7 +31,7 @@ O app cobre o que o Google Maps não resolve bem: **descobrir e colecionar um co
 
 ```
 .
-├── index.html           # Landing page estática
+├── index.html           # Site page estática
 ├── app/index.html       # Entry da SPA
 ├── src/
 │   ├── main.jsx         # Bootstrap React + init Amplitude
@@ -51,11 +51,11 @@ O app cobre o que o Google Maps não resolve bem: **descobrir e colecionar um co
     └── generate-park-pages.mjs   # Gera /parque/<slug>/ + sitemap.xml + robots.txt
 ```
 
-Em produção, o build produz duas entradas (via Vite multi-page):
+Em produção, o build gera:
 
-- `/` — landing page estática
-- `/app/` — SPA do app
-- `/parque/<slug>/` — uma página estática por parque (SEO), com redirect pro app
+- `/` — página de apresentação estática
+- `/app/` — aplicativo (SPA)
+- `/parque/<slug>/` — uma página por parque (para busca orgânica), com atalho pro app
 
 ## Desenvolvimento
 
