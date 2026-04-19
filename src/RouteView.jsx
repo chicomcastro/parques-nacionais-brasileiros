@@ -44,31 +44,43 @@ function Icon({ name, size = 20, style = {} }) {
 function RouteMap({ startLat, startLng, ordered, legs }) {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
+  const layersRef = useRef([]);
+  const [L, setL] = useState(null);
 
   useEffect(() => {
-    let map;
-    import("leaflet").then(L => {
-      L = L.default;
-      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
-      map = L.map(containerRef.current, { zoomControl: false, attributionControl: false }).setView([-14, -52], 4);
-      mapRef.current = map;
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(map);
-      L.control.zoom({ position: "topright" }).addTo(map);
+    let cancelled = false;
+    import("leaflet").then(mod => { if (!cancelled) setL(() => mod.default); });
+    return () => { cancelled = true; };
+  }, []);
 
-      const mkIcon = (html) => L.divIcon({ className: "", html, iconSize: [28, 28], iconAnchor: [14, 14] });
-      L.marker([startLat, startLng], { icon: mkIcon(`<div style="width:28px;height:28px;border-radius:50%;background:#15803d;color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 8px #0004;border:2px solid #fff"><span class="material-icons-round" style="font-size:16px">my_location</span></div>`) }).addTo(map);
+  useEffect(() => {
+    if (!L || mapRef.current) return;
+    const map = L.map(containerRef.current, { zoomControl: false, attributionControl: false }).setView([-14, -52], 4);
+    mapRef.current = map;
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(map);
+    L.control.zoom({ position: "topright" }).addTo(map);
+    return () => { if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; layersRef.current = []; } };
+  }, [L]);
 
-      const points = [[startLat, startLng]];
-      ordered.forEach((p, i) => {
-        points.push([p.lat, p.lng]);
-        const marker = L.marker([p.lat, p.lng], { icon: mkIcon(`<div style="width:28px;height:28px;border-radius:50%;background:#fff;color:#15803d;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;box-shadow:0 2px 8px #0004;border:2px solid #15803d">${i + 1}</div>`) }).addTo(map);
-        marker.bindPopup(`<b>${p.name}</b><br/>${p.state} · ${legs[i]} km`);
-      });
-      L.polyline(points, { color: "#15803d", weight: 3, opacity: 0.7, dashArray: "8 6" }).addTo(map);
-      if (points.length > 1) map.fitBounds(L.latLngBounds(points), { padding: [30, 30] });
+  useEffect(() => {
+    if (!L || !mapRef.current) return;
+    const map = mapRef.current;
+    layersRef.current.forEach(l => l.remove());
+    layersRef.current = [];
+    const mkIcon = (html) => L.divIcon({ className: "", html, iconSize: [28, 28], iconAnchor: [14, 14] });
+    const start = L.marker([startLat, startLng], { icon: mkIcon(`<div style="width:28px;height:28px;border-radius:50%;background:#15803d;color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 8px #0004;border:2px solid #fff"><span class="material-icons-round" style="font-size:16px">my_location</span></div>`) }).addTo(map);
+    layersRef.current.push(start);
+    const points = [[startLat, startLng]];
+    ordered.forEach((p, i) => {
+      points.push([p.lat, p.lng]);
+      const marker = L.marker([p.lat, p.lng], { icon: mkIcon(`<div style="width:28px;height:28px;border-radius:50%;background:#fff;color:#15803d;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;box-shadow:0 2px 8px #0004;border:2px solid #15803d">${i + 1}</div>`) }).addTo(map);
+      marker.bindPopup(`<b>${p.name}</b><br/>${p.state} · ${legs[i]} km`);
+      layersRef.current.push(marker);
     });
-    return () => { if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; } };
-  }, [startLat, startLng, ordered, legs]);
+    const poly = L.polyline(points, { color: "#15803d", weight: 3, opacity: 0.7, dashArray: "8 6" }).addTo(map);
+    layersRef.current.push(poly);
+    if (points.length > 1) map.fitBounds(L.latLngBounds(points), { padding: [30, 30], animate: false });
+  }, [L, startLat, startLng, ordered, legs]);
 
   return <div ref={containerRef} style={{ width: "100%", height: "100%", borderRadius: 12, overflow: "hidden" }} />;
 }
@@ -105,12 +117,74 @@ export function SavedRoutes({ routes, onLoad, onDelete }) {
   );
 }
 
+function DraggableParks({ ordered, legs, onReorder }) {
+  const [dragIdx, setDragIdx] = useState(null);
+  const startY = useRef(0);
+  const lastSwap = useRef(0);
+  const itemHeight = 72;
+
+  const onPointerDown = (idx, e) => {
+    e.preventDefault();
+    setDragIdx(idx);
+    startY.current = e.clientY;
+    lastSwap.current = e.clientY;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+  };
+
+  const onPointerMove = (e) => {
+    if (dragIdx === null) return;
+    const dy = e.clientY - lastSwap.current;
+    if (dy > itemHeight / 2 && dragIdx < ordered.length - 1) {
+      onReorder(dragIdx, dragIdx + 1);
+      setDragIdx(dragIdx + 1);
+      lastSwap.current = e.clientY;
+    } else if (dy < -itemHeight / 2 && dragIdx > 0) {
+      onReorder(dragIdx, dragIdx - 1);
+      setDragIdx(dragIdx - 1);
+      lastSwap.current = e.clientY;
+    }
+  };
+
+  const onPointerUp = () => setDragIdx(null);
+
+  return (
+    <div onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+      {ordered.map((park, i) => (
+        <div key={park.id} style={{ opacity: dragIdx === i ? 0.5 : 1, transition: "opacity .15s" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 0" }}>
+            <div style={{ width: 32, display: "flex", justifyContent: "center", flexShrink: 0 }}>
+              <div style={{ width: 2, height: 28, background: "#d1d5db" }} />
+            </div>
+            <span style={{ fontSize: 11, color: "#15803d", fontWeight: 600 }}>↓ {legs[i].toLocaleString("pt-BR")} km</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#dcfce7", color: "#15803d",
+              display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, flexShrink: 0,
+              border: "2px solid #15803d" }}>{i + 1}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "#1e293b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{park.name}</div>
+              <div style={{ fontSize: 11, color: "#94a3b8" }}>{park.state} · {park.access}</div>
+            </div>
+            <button
+              onPointerDown={(e) => onPointerDown(i, e)}
+              style={{ background: "none", border: "none", cursor: "grab", color: "#94a3b8", padding: 8, touchAction: "none" }}
+              title="Arraste para reordenar"
+            >
+              <Icon name="drag_indicator" size={22} />
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function buildGoogleMapsUrl(startLat, startLng, ordered) {
   const waypoints = ordered.map(p => `${p.lat},${p.lng}`).join("/");
   return `https://www.google.com/maps/dir/${startLat},${startLng}/${waypoints}`;
 }
 
-export default function RouteModal({ parks, startLabel, startLat, startLng, onClose, onClear, editingRoute }) {
+export default function RouteModal({ parks, startLabel, startLat, startLng, onClose, onClear, onEditParks, editingRoute }) {
   const [tab, setTab] = useState("mapa");
   const [routeName, setRouteName] = useState(editingRoute?.name || "");
   const [routeId, setRouteId] = useState(editingRoute?.id || null);
@@ -125,20 +199,53 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
     setTimeout(cb || onClose, 250);
   }, [onClose]);
 
-  const { ordered, legs, total } = useMemo(
-    () => optimizeRoute(parks, startLat, startLng),
-    [parks, startLat, startLng]
-  );
+  const [customOrder, setCustomOrder] = useState(null);
+
+  const optimized = useMemo(() => optimizeRoute(parks, startLat, startLng), [parks, startLat, startLng]);
+
+  const ordered = useMemo(() => {
+    if (!customOrder) return optimized.ordered;
+    const byId = new Map(parks.map(p => [p.id, p]));
+    const list = customOrder.map(id => byId.get(id)).filter(Boolean);
+    const seen = new Set(list.map(p => p.id));
+    for (const p of parks) if (!seen.has(p.id)) list.push(p);
+    return list;
+  }, [customOrder, optimized, parks]);
+
+  const legs = useMemo(() => {
+    if (!customOrder) return optimized.legs;
+    let lat = startLat, lng = startLng;
+    return ordered.map(p => {
+      const d = Math.round(haversine(lat, lng, p.lat, p.lng));
+      lat = p.lat; lng = p.lng;
+      return d;
+    });
+  }, [customOrder, ordered, optimized, startLat, startLng]);
+
+  const total = useMemo(() => customOrder ? legs.reduce((a, b) => a + b, 0) : optimized.total, [customOrder, legs, optimized]);
+
+  const reorder = useCallback((from, to) => {
+    setCustomOrder(prev => {
+      const current = prev ? [...prev] : optimized.ordered.map(p => p.id);
+      const [m] = current.splice(from, 1);
+      current.splice(to, 0, m);
+      track("route_reorder", { from, to });
+      return current;
+    });
+  }, [optimized]);
 
   const days = useMemo(() => estimateDays(total, ordered.length), [total, ordered.length]);
   const mapsUrl = useMemo(() => buildGoogleMapsUrl(startLat, startLng, ordered), [startLat, startLng, ordered]);
 
+  const lastSavedRef = useRef(editingRoute ? editingRoute.parkIds.join(",") : "");
   const handleSave = useCallback(() => {
     const name = routeName.trim() || `Roteiro ${new Date().toLocaleDateString("pt-BR")}`;
     const id = routeId || Date.now().toString();
     const isUpdate = !!routeId;
-    const route = { id, name, parkIds: ordered.map(p => p.id), totalKm: total, days, startLabel, startLat, startLng, savedAt: Date.now() };
+    const orderedIds = ordered.map(p => p.id);
+    const route = { id, name, parkIds: orderedIds, totalKm: total, days, startLabel, startLat, startLng, savedAt: Date.now() };
     saveRoute(route).then(() => {
+      lastSavedRef.current = orderedIds.join(",");
       track(isUpdate ? "route_update" : "route_save", { route_id: id, park_count: ordered.length, total_km: total, days });
       setRouteId(id);
       setRouteName(name);
@@ -146,6 +253,15 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
       setTimeout(() => setSaveMsg(""), 2000);
     });
   }, [ordered, total, days, routeName, routeId, startLabel, startLat, startLng]);
+
+  useEffect(() => {
+    if (!isExisting) return;
+    const currentIds = ordered.map(p => p.id).join(",");
+    if (currentIds !== lastSavedRef.current) {
+      const t = setTimeout(() => handleSave(), 400);
+      return () => clearTimeout(t);
+    }
+  }, [isExisting, ordered, handleSave]);
 
   const handleDelete = useCallback(() => {
     if (routeId) {
@@ -172,10 +288,11 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
   const tabBtn = (key, label, icon) => (
     <button className="btn-press" key={key} onClick={() => { setTab(key); track("route_tab_change", { tab: key }); }} style={{
       flex: 1, padding: "8px 4px", borderRadius: 10, border: "none",
-      background: tab === key ? "#15803d" : "#f1f5f9",
-      color: tab === key ? "#fff" : "#64748b",
+      background: tab === key ? "#fff" : "#ffffff22",
+      color: tab === key ? "#14532d" : "#ffffffcc",
       cursor: "pointer", fontSize: 12, fontWeight: 700, transition: "all .15s",
       display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+      boxShadow: tab === key ? "0 2px 8px #0002" : "none",
     }}><Icon name={icon} size={16} /> {label}</button>
   );
 
@@ -194,10 +311,10 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
               {editingNameMode ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <input autoFocus value={tempName} onChange={e => setTempName(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { setRouteName(tempName); setEditingNameMode(false); } if (e.key === "Escape") setEditingNameMode(false); }}
+                    onKeyDown={e => { if (e.key === "Enter") { setRouteName(tempName); setEditingNameMode(false); if (isExisting) setTimeout(handleSave, 0); } if (e.key === "Escape") setEditingNameMode(false); }}
                     style={{ flex: 1, fontSize: 17, fontWeight: 800, background: "#ffffff22", color: "#fff",
                       border: "1px solid #fff6", borderRadius: 8, padding: "4px 10px", outline: "none", minWidth: 0 }} />
-                  <button onClick={() => { setRouteName(tempName); setEditingNameMode(false); track("route_rename"); }} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", padding: 2 }}>
+                  <button onClick={() => { setRouteName(tempName); setEditingNameMode(false); track("route_rename"); if (isExisting) setTimeout(handleSave, 0); }} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", padding: 2 }}>
                     <Icon name="check" size={20} />
                   </button>
                   <button onClick={() => setEditingNameMode(false)} style={{ background: "none", border: "none", color: "#fffc", cursor: "pointer", padding: 2 }}>
@@ -218,6 +335,13 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
                 {ordered.length} parques · {total.toLocaleString("pt-BR")} km · ~{days} dia{days !== 1 ? "s" : ""}
               </div>
             </div>
+            {isExisting && onEditParks && (
+              <button className="btn-press" title="Editar parques" onClick={() => { track("route_edit_parks", { route_id: routeId }); animateClose(onEditParks); }} style={{ background: "#ffffff22", color: "#fff", border: "none",
+                borderRadius: "50%", width: 32, height: 32, cursor: "pointer", flexShrink: 0, marginLeft: 8,
+                display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Icon name="playlist_add" size={20} />
+              </button>
+            )}
             <button className="btn-press" onClick={() => animateClose()} style={{ background: "#ffffff22", color: "#fff", border: "none",
               borderRadius: "50%", width: 32, height: 32, cursor: "pointer", flexShrink: 0, marginLeft: 8,
               display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -244,25 +368,17 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
                 </div>
               </div>
 
-              {ordered.map((park, i) => (
-                <div key={park.id}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 0" }}>
-                    <div style={{ width: 32, display: "flex", justifyContent: "center", flexShrink: 0 }}>
-                      <div style={{ width: 2, height: 28, background: "#d1d5db" }} />
-                    </div>
-                    <span style={{ fontSize: 11, color: "#15803d", fontWeight: 600 }}>↓ {legs[i].toLocaleString("pt-BR")} km</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#dcfce7", color: "#15803d",
-                      display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, flexShrink: 0,
-                      border: "2px solid #15803d" }}>{i + 1}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: "#1e293b" }}>{park.name}</div>
-                      <div style={{ fontSize: 11, color: "#94a3b8" }}>{park.state} · {park.access}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+              <DraggableParks ordered={ordered} legs={legs} onReorder={reorder} />
+              {onEditParks && (
+                <button className="btn-press" onClick={() => { track("route_edit_parks", { route_id: routeId }); animateClose(onEditParks); }} style={{
+                  width: "100%", marginTop: 12, padding: "10px", borderRadius: 10,
+                  border: "2px dashed #bbf7d0", background: "#f0fdf4", color: "#15803d",
+                  cursor: "pointer", fontSize: 13, fontWeight: 700,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                }}>
+                  <Icon name="add" size={18} /> Adicionar parque
+                </button>
+              )}
 
               <div style={{ marginTop: 20, padding: "14px 16px", background: "#f0fdf4", borderRadius: 12,
                 border: "1px solid #bbf7d0", textAlign: "center" }}>
@@ -285,14 +401,23 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
           {!isExisting && (
             <div style={{ marginBottom: 10 }}>
               <input value={routeName} onChange={e => setRouteName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") handleSave(); }}
                 placeholder="Nome do roteiro (opcional)"
                 style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
             </div>
           )}
-          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+          {!isExisting && (
+            <button className="btn-press" onClick={handleSave} style={{
+              width: "100%", marginBottom: 8, padding: "12px", borderRadius: 10, border: "none",
+              background: "linear-gradient(135deg,#14532d,#15803d)", color: "#fff", cursor: "pointer",
+              fontSize: 14, fontWeight: 700, boxShadow: "0 4px 14px #15803d44",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            }}><Icon name="save" size={18} /> Salvar roteiro</button>
+          )}
+          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
             <a href={mapsUrl} target="_blank" rel="noreferrer" className="btn-press" onClick={() => track("route_open_maps", { park_count: ordered.length, total_km: total })} style={{
-              flex: 1, padding: "10px", borderRadius: 10, border: "none",
-              background: "#15803d", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600,
+              flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #e2e8f0",
+              background: "#fff", color: "#1e293b", cursor: "pointer", fontSize: 13, fontWeight: 600,
               textDecoration: "none", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6
             }}><Icon name="directions" size={18} /> Abrir no Maps</a>
             <button className="btn-press" onClick={handleShare} style={{
@@ -301,18 +426,12 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
               display: "flex", alignItems: "center", justifyContent: "center", gap: 6
             }}><Icon name="share" size={18} /> Compartilhar</button>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn-press" onClick={handleSave} style={{
-              flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #e2e8f0",
-              background: "#fff", color: "#1e293b", cursor: "pointer", fontSize: 13, fontWeight: 600,
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6
-            }}><Icon name="save" size={18} /> {isExisting ? "Atualizar" : "Salvar"}</button>
-            <button className="btn-press" onClick={handleDelete} style={{
-              flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #fee2e2",
-              background: "#fff", color: "#ef4444", cursor: "pointer", fontSize: 13, fontWeight: 600,
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6
-            }}><Icon name="delete" size={18} /> {isExisting ? "Excluir" : "Limpar"}</button>
-          </div>
+          <button className="btn-press" onClick={handleDelete} style={{
+            width: "100%", padding: "8px", borderRadius: 10, border: "none",
+            background: "transparent", color: "#ef4444", cursor: "pointer",
+            fontSize: 12, fontWeight: 600,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+          }}><Icon name={isExisting ? "delete" : "close"} size={16} /> {isExisting ? "Excluir roteiro" : "Descartar"}</button>
         </div>
       </div>
     </div>

@@ -116,6 +116,14 @@ body {
   transform: translateY(-2px) scale(1.1);
 }
 
+.carousel-arrow { opacity: 0; transition: opacity .2s; }
+@media (hover: hover) {
+  .card-enter:hover .carousel-arrow { opacity: 1; }
+}
+@media (hover: none) {
+  .carousel-arrow { opacity: 0; pointer-events: none; }
+}
+
 .bottom-nav-badge {
   position: absolute;
   top: 10px;

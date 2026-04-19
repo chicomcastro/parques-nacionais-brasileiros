@@ -4,13 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#14532d" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Parques BR" />
     <title>Parques Nacionais do Brasil</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Icons+Round" />
-    <link rel="manifest" href="/parques-nacionais-brasileiros/manifest.json" />
-    <link rel="apple-touch-icon" href="/parques-nacionais-brasileiros/icon-192.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
     <style>
       html, body { margin: 0; padding: 0; background: #14532d; }
       #splash-initial {
@@ -47,7 +49,8 @@
     <script type="module" src="/src/main.jsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/parques-nacionais-brasileiros/sw.js');
+        var base = location.pathname.replace(/app\/?$/, '');
+        navigator.serviceWorker.register(base + 'sw.js', { scope: base });
       }
       setTimeout(() => {
         const s = document.getElementById('splash-initial');

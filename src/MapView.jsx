@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
 
 const STATUS_COLORS = { aberto: "#22c55e", limitado: "#f59e0b", fechado: "#ef4444" };
@@ -6,35 +6,54 @@ const STATUS_COLORS = { aberto: "#22c55e", limitado: "#f59e0b", fechado: "#ef444
 export default function MapView({ parks, onSelectPark }) {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
+  const markersRef = useRef([]);
+  const onSelectRef = useRef(onSelectPark);
+  const [L, setL] = useState(null);
+
+  useEffect(() => { onSelectRef.current = onSelectPark; }, [onSelectPark]);
 
   useEffect(() => {
-    let map;
-    import("leaflet").then(L => {
-      L = L.default;
-      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
-      map = L.map(containerRef.current, { zoomControl: false, attributionControl: false }).setView([-14, -52], 4);
-      mapRef.current = map;
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(map);
-      L.control.zoom({ position: "topright" }).addTo(map);
-
-      const bounds = [];
-      parks.forEach(p => {
-        const color = STATUS_COLORS[p.status] || "#64748b";
-        const icon = L.divIcon({
-          className: "",
-          html: `<div style="width:26px;height:26px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;box-shadow:0 2px 6px #0004;border:2px solid #fff">${p.id}</div>`,
-          iconSize: [26, 26],
-          iconAnchor: [13, 13],
-        });
-        const marker = L.marker([p.lat, p.lng], { icon }).addTo(map);
-        marker.bindPopup(`<b>${p.name}</b><br/>${p.state} · ${p.bioma || ""}<br/><span style="color:${color};font-weight:600">${p.status}</span>`);
-        marker.on("click", () => onSelectPark(p));
-        bounds.push([p.lat, p.lng]);
-      });
-      if (bounds.length > 0) map.fitBounds(L.latLngBounds(bounds), { padding: [40, 40] });
+    let cancelled = false;
+    import("leaflet").then(mod => {
+      if (cancelled) return;
+      setL(() => mod.default);
     });
-    return () => { if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; } };
-  }, [parks, onSelectPark]);
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!L || mapRef.current) return;
+    const map = L.map(containerRef.current, { zoomControl: false, attributionControl: false }).setView([-14, -52], 4);
+    mapRef.current = map;
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(map);
+    L.control.zoom({ position: "topright" }).addTo(map);
+    return () => {
+      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; markersRef.current = []; }
+    };
+  }, [L]);
+
+  useEffect(() => {
+    if (!L || !mapRef.current) return;
+    const map = mapRef.current;
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
+    const bounds = [];
+    parks.forEach(p => {
+      const color = STATUS_COLORS[p.status] || "#64748b";
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="width:26px;height:26px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;box-shadow:0 2px 6px #0004;border:2px solid #fff">${p.id}</div>`,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+      });
+      const marker = L.marker([p.lat, p.lng], { icon }).addTo(map);
+      marker.bindPopup(`<b>${p.name}</b><br/>${p.state} · ${p.bioma || ""}<br/><span style="color:${color};font-weight:600">${p.status}</span>`);
+      marker.on("click", () => onSelectRef.current?.(p));
+      markersRef.current.push(marker);
+      bounds.push([p.lat, p.lng]);
+    });
+    if (bounds.length > 0) map.fitBounds(L.latLngBounds(bounds), { padding: [40, 40], animate: false });
+  }, [L, parks]);
 
   return (
     <div style={{ position: "relative", height: "calc(100vh - 260px)", minHeight: 400, margin: "16px 24px", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 12px #0001" }}>
