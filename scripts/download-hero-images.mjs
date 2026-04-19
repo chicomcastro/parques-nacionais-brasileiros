@@ -1,10 +1,16 @@
 import { PARKS } from "../src/parks-data.mjs";
-import { writeFile, mkdir, access, readdir } from "node:fs/promises";
+import { writeFile, mkdir, access, readdir, readFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(__dirname, "..", "public", "parks");
+const OVERRIDES_PATH = resolve(OUT, "overrides.json");
+
+let overrides = {};
+try {
+  overrides = JSON.parse(await readFile(OVERRIDES_PATH, "utf8"));
+} catch {}
 
 const API = "https://pt.wikipedia.org/w/api.php";
 
@@ -70,11 +76,12 @@ async function exists(p) {
 async function downloadPark(park, { force = false } = {}) {
   const out = resolve(OUT, `${park.id}.jpg`);
   const outWebp = resolve(OUT, `${park.id}.webp`);
-  if (!force && (await exists(out) || await exists(outWebp))) {
+  const override = overrides[park.id]?.url;
+  if (!force && !override && (await exists(out) || await exists(outWebp))) {
     return { id: park.id, status: "skip" };
   }
   try {
-    const url = await fetchFirstImage(park.slug);
+    const url = override || await fetchFirstImage(park.slug);
     if (!url) return { id: park.id, status: "no-image" };
     const img = await fetch(url, { headers: HEADERS });
     if (!img.ok) return { id: park.id, status: `http-${img.status}` };

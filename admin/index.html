@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Admin · Parques</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: #0f172a; color: #e2e8f0; display: flex; min-height: 100vh; }
+  aside { width: 300px; background: #020617; border-right: 1px solid #1e293b; padding: 12px; overflow-y: auto; height: 100vh; position: sticky; top: 0; }
+  aside h2 { margin: 0 0 10px; font-size: 14px; color: #94a3b8; font-weight: 600; }
+  .park-list { display: flex; flex-direction: column; gap: 2px; }
+  .park-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: background .15s; }
+  .park-item:hover { background: #1e293b; }
+  .park-item.active { background: #15803d; color: #fff; }
+  .park-item .id { color: #64748b; font-size: 11px; min-width: 20px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot.override { background: #3b82f6; }
+  .dot.hero { background: #22c55e; }
+  .dot.missing { background: #ef4444; }
+  main { flex: 1; padding: 24px; }
+  header.top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
+  header.top h1 { margin: 0; font-size: 20px; }
+  .toolbar { display: flex; gap: 8px; }
+  button { background: #15803d; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  button.secondary { background: #334155; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .park-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .park-header h2 { margin: 0; font-size: 24px; }
+  .tag { background: #1e293b; padding: 2px 8px; border-radius: 10px; font-size: 11px; color: #94a3b8; }
+  .current { background: #0b1120; border: 1px solid #1e293b; border-radius: 10px; padding: 12px; margin-bottom: 16px; }
+  .current h3 { margin: 0 0 8px; font-size: 13px; color: #94a3b8; font-weight: 600; }
+  .current img { width: 100%; max-width: 480px; border-radius: 8px; display: block; }
+  .current .src { font-size: 11px; color: #64748b; margin-top: 6px; word-break: break-all; }
+  .candidates-head { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 10px; }
+  .candidates-head h3 { margin: 0; font-size: 14px; color: #cbd5e1; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .candidate { position: relative; border: 2px solid transparent; border-radius: 8px; overflow: hidden; cursor: pointer; background: #1e293b; transition: border-color .15s, transform .15s; }
+  .candidate:hover { transform: translateY(-2px); }
+  .candidate.picked { border-color: #22c55e; }
+  .candidate img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: #0f172a; }
+  .candidate .label { position: absolute; bottom: 0; left: 0; right: 0; background: #000a; color: #fff; font-size: 10px; padding: 3px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .empty { color: #64748b; font-style: italic; padding: 20px; text-align: center; }
+  .loading { color: #64748b; text-align: center; padding: 40px; }
+  textarea { width: 100%; min-height: 60px; background: #0b1120; color: #e2e8f0; border: 1px solid #1e293b; border-radius: 6px; padding: 8px; font-family: inherit; font-size: 13px; resize: vertical; }
+  .status-bar { padding: 8px 12px; background: #1e293b; border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #94a3b8; display: flex; gap: 16px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<aside>
+  <h2>Parques (<span id="count">0</span>)</h2>
+  <div id="park-list" class="park-list"></div>
+</aside>
+<main>
+  <header class="top">
+    <h1 id="title">Admin · Curadoria</h1>
+    <div class="toolbar">
+      <button id="download" class="secondary">⬇ Baixar overrides.json</button>
+      <button id="load" class="secondary">📂 Carregar overrides.json</button>
+      <input type="file" id="file-input" accept="application/json" style="display: none" />
+    </div>
+  </header>
+  <div class="status-bar">
+    <span><span class="dot hero" style="display:inline-block"></span> com hero</span>
+    <span><span class="dot override" style="display:inline-block"></span> override ativo</span>
+    <span><span class="dot missing" style="display:inline-block"></span> sem imagem</span>
+    <span id="stats"></span>
+  </div>
+  <div id="detail"></div>
+</main>
+
+<script type="module">
+import { PARKS } from "/src/parks-data.mjs";
+
+const LS = "parques-admin-overrides";
+const overrides = JSON.parse(localStorage.getItem(LS) || "{}");
+let heroes = new Set();
+let selectedId = null;
+
+async function loadManifest() {
+  try {
+    const r = await fetch("/parques-nacionais-brasileiros/parks/manifest.json");
+    if (r.ok) { const d = await r.json(); heroes = new Set(d.ids || []); }
+  } catch {}
+}
+
+function save() {
+  localStorage.setItem(LS, JSON.stringify(overrides));
+  renderList();
+  renderStats();
+}
+
+function renderStats() {
+  const h = heroes.size;
+  const o = Object.keys(overrides).length;
+  document.getElementById("stats").textContent = `${h}/${PARKS.length} com hero · ${o} overrides pendentes`;
+}
+
+function renderList() {
+  const q = (document.getElementById("search")?.value || "").toLowerCase();
+  const el = document.getElementById("park-list");
+  el.innerHTML = "";
+  let count = 0;
+  for (const park of PARKS) {
+    if (q && !park.name.toLowerCase().includes(q)) continue;
+    count++;
+    const hasOverride = !!overrides[park.id];
+    const hasHero = heroes.has(park.id);
+    const dotClass = hasOverride ? "override" : hasHero ? "hero" : "missing";
+    const div = document.createElement("div");
+    div.className = "park-item" + (park.id === selectedId ? " active" : "");
+    div.innerHTML = `<span class="id">#${park.id}</span><span class="dot ${dotClass}"></span><span>${park.name}</span>`;
+    div.onclick = () => select(park.id);
+    el.appendChild(div);
+  }
+  document.getElementById("count").textContent = count;
+}
+
+async function fetchCandidates(slug) {
+  const params = new URLSearchParams({
+    action: "query", titles: slug, generator: "images", gimlimit: "30",
+    prop: "imageinfo", iiprop: "url|mime|size", iiurlwidth: "600",
+    format: "json", origin: "*",
+  });
+  const r = await fetch(`https://pt.wikipedia.org/w/api.php?${params}`);
+  if (!r.ok) return [];
+  const data = await r.json();
+  if (!data?.query?.pages) return [];
+  const bad = ["icon","logo","badge","symbol","commons","wikidata","edit-clear","padlock","crystal","flag","coat_of_arms","brasao","brasão","stub","ambox","question_book","disambig","wiki_letter","portal","red_pencil","searchtool","merge-arrow","unbalanced","fairytale","nuvola","konqueror","gnome","oxygen","tango"];
+  return Object.values(data.query.pages)
+    .filter(p => {
+      const info = p.imageinfo?.[0];
+      if (!info) return false;
+      if (!info.mime?.startsWith("image/")) return false;
+      if (info.mime === "image/svg+xml") return false;
+      const t = (p.title || "").toLowerCase();
+      if (bad.some(k => t.includes(k))) return false;
+      const w = info.width || 0, h = info.height || 0;
+      if (w > 0 && h > 0 && w < 200 && h < 200) return false;
+      return true;
+    })
+    .map(p => ({ title: p.title, url: p.imageinfo[0].thumburl || p.imageinfo[0].url }));
+}
+
+async function select(id) {
+  selectedId = id;
+  renderList();
+  const park = PARKS.find(p => p.id === id);
+  const detail = document.getElementById("detail");
+  const hasHero = heroes.has(id);
+  const currentUrl = overrides[id]?.url || (hasHero ? `/parques-nacionais-brasileiros/parks/${id}.webp` : null);
+  detail.innerHTML = `
+    <div class="park-header">
+      <h2>#${park.id} ${park.name}</h2>
+      <span class="tag">${park.state}</span>
+      <span class="tag">${park.bioma}</span>
+      <span class="tag">${park.status}</span>
+    </div>
+    <div class="current">
+      <h3>${overrides[id] ? "Override ativo" : hasHero ? "Hero atual (Wikipedia default)" : "Sem imagem"}</h3>
+      ${currentUrl ? `<img src="${currentUrl}" />` : `<div class="empty">Nenhuma imagem selecionada</div>`}
+      ${overrides[id]?.url ? `<div class="src">${overrides[id].url}</div>` : ""}
+      ${overrides[id] ? `<button class="secondary" style="margin-top:8px" id="clear">Remover override</button>` : ""}
+    </div>
+    <div class="candidates-head">
+      <h3>Candidatas da Wikipedia</h3>
+      <button id="refresh" class="secondary">↻ Recarregar</button>
+    </div>
+    <div id="candidates" class="loading">Carregando imagens…</div>
+    <div style="margin-top:16px">
+      <h3 style="font-size:13px;color:#94a3b8;margin:0 0 6px">Notas (pra commitar nos overrides)</h3>
+      <textarea id="notes" placeholder="Observação sobre este parque…">${overrides[id]?.notes || ""}</textarea>
+    </div>
+  `;
+  document.getElementById("notes").addEventListener("input", e => {
+    overrides[id] = overrides[id] || {};
+    overrides[id].notes = e.target.value;
+    if (!overrides[id].notes && !overrides[id].url) delete overrides[id];
+    save();
+  });
+  const clr = document.getElementById("clear");
+  if (clr) clr.onclick = () => { delete overrides[id]; save(); select(id); };
+  document.getElementById("refresh").onclick = () => loadCandidates(park);
+  loadCandidates(park);
+}
+
+async function loadCandidates(park) {
+  const c = document.getElementById("candidates");
+  c.className = "loading";
+  c.textContent = "Carregando imagens…";
+  const cands = await fetchCandidates(park.slug);
+  if (cands.length === 0) {
+    c.className = "empty";
+    c.textContent = "Nenhuma candidata encontrada na Wikipedia.";
+    return;
+  }
+  c.className = "grid";
+  c.innerHTML = "";
+  for (const cand of cands) {
+    const div = document.createElement("div");
+    const picked = overrides[park.id]?.url === cand.url;
+    div.className = "candidate" + (picked ? " picked" : "");
+    div.innerHTML = `<img src="${cand.url}" loading="lazy" /><div class="label">${cand.title.replace(/^File:|^Ficheiro:/, "")}</div>`;
+    div.onclick = () => {
+      overrides[park.id] = { url: cand.url, title: cand.title, notes: overrides[park.id]?.notes || "" };
+      save();
+      select(park.id);
+    };
+    c.appendChild(div);
+  }
+}
+
+document.getElementById("download").onclick = () => {
+  const blob = new Blob([JSON.stringify(overrides, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "overrides.json";
+  a.click();
+};
+
+document.getElementById("load").onclick = () => document.getElementById("file-input").click();
+document.getElementById("file-input").onchange = async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const text = await f.text();
+  const data = JSON.parse(text);
+  Object.assign(overrides, data);
+  save();
+  if (selectedId) select(selectedId);
+};
+
+(async function init() {
+  await loadManifest();
+  const sidebar = document.querySelector("aside");
+  const search = document.createElement("input");
+  search.id = "search";
+  search.placeholder = "Buscar parque…";
+  search.style.cssText = "width:100%;padding:6px 10px;margin-bottom:8px;border-radius:6px;border:1px solid #1e293b;background:#0b1120;color:#e2e8f0;font-size:13px;";
+  search.oninput = renderList;
+  sidebar.insertBefore(search, document.getElementById("park-list"));
+  renderList();
+  renderStats();
+  if (PARKS.length > 0) select(PARKS[0].id);
+})();
+</script>
+</body>
+</html>
