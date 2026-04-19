@@ -1,11 +1,17 @@
 import { PARKS } from "../src/parks-data.mjs";
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir, readFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST = resolve(__dirname, "..", "dist");
 const BASE = "https://chicomcastro.github.io/parques-nacionais-brasileiros";
+
+let heroIds = new Set();
+try {
+  const m = JSON.parse(await readFile(resolve(__dirname, "..", "public", "parks", "manifest.json"), "utf8"));
+  heroIds = new Set(m.ids || []);
+} catch {}
 
 function slugify(name) {
   return name
@@ -23,7 +29,7 @@ function renderParkPage(park) {
   const urlSlug = slugify(park.name);
   const appUrl = `${BASE}/app/?park=${park.id}`;
   const pageUrl = `${BASE}/parque/${urlSlug}/`;
-  const ogImage = `${BASE}/icon-512.png`;
+  const ogImage = heroIds.has(park.id) ? `${BASE}/parks/${park.id}.webp` : `${BASE}/icon-512.png`;
   const title = `Parque Nacional ${park.name} — ${park.state}`;
   const desc = `Parque Nacional ${park.name} em ${park.state}, bioma ${park.bioma}. Entrada: ${park.entrada}. Horário: ${park.horario}. Melhor época: ${park.melhorEpoca}.`;
   const trilhas = park.trilhas && park.trilhas.length > 0 ? park.trilhas : [];
@@ -91,6 +97,7 @@ function renderParkPage(park) {
 </head>
 <body>
 <p><a class="back" href="${BASE}/">← Parques Nacionais do Brasil</a></p>
+${heroIds.has(park.id) ? `<img src="${BASE}/parks/${park.id}.webp" alt="${esc(park.name)}" style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:16px;margin:16px 0;" />` : ""}
 <h1>Parque Nacional ${esc(park.name)}</h1>
 <p class="meta">${esc(park.state)} · Bioma ${esc(park.bioma)} · <span class="status status-${park.status}">${esc(park.status)}</span></p>
 <p class="intro">${esc(intro)}</p>

@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build && node scripts/generate-park-pages.mjs",
     "preview": "vite preview",
-    "validate": "node scripts/validate-parks.mjs"
+    "validate": "node scripts/validate-parks.mjs",
+    "fetch-heroes": "node scripts/download-hero-images.mjs"
   },
   "dependencies": {
     "@amplitude/analytics-browser": "^2.39.0",

@@ -71,6 +71,16 @@ const STATUS = {
 const PAGE = 12;
 const imgCache = {};
 const LS_KEY = "parques-favoritos";
+
+const heroManifest = new Set();
+fetch(`${import.meta.env.BASE_URL}parks/manifest.json`)
+  .then(r => r.ok ? r.json() : { ids: [] })
+  .then(d => { for (const id of d.ids || []) heroManifest.add(id); })
+  .catch(() => {});
+
+function heroUrl(parkId) {
+  return heroManifest.has(parkId) ? `${import.meta.env.BASE_URL}parks/${parkId}.webp` : null;
+}
 const impressionSeen = new Set();
 
 function loadFavorites() {
@@ -173,7 +183,8 @@ function fetchAllImages(slug) {
     .catch(() => []);
 }
 
-function useParkImages(slug) {
+function useParkImages(slug, parkId) {
+  const hero = parkId ? heroUrl(parkId) : null;
   const [images, setImages] = useState(imgCache[slug] ?? null);
   const [done, setDone] = useState(slug in imgCache);
 
@@ -187,7 +198,13 @@ function useParkImages(slug) {
     return () => { alive = false; };
   }, [slug]);
 
-  return { images: images || [], done };
+  const combined = useMemo(() => {
+    const remote = images || [];
+    if (!hero) return remote;
+    return [hero, ...remote.filter(u => u !== hero)];
+  }, [hero, images]);
+
+  return { images: combined, done: done || !!hero };
 }
 
 function Carousel({ images, height, alt, onClickImage, compact = false }) {
@@ -291,6 +308,8 @@ function Carousel({ images, height, alt, onClickImage, compact = false }) {
       }}>
         {images.map((src, i) => (
           <img key={i} src={src} alt={i === idx ? alt : ""} draggable={false}
+            loading={i === 0 ? "eager" : "lazy"} decoding="async"
+            fetchPriority={i === 0 ? "high" : "low"}
             style={{ width: width || "100%", height: "100%", objectFit: "cover", display: "block",
               cursor: onClickImage ? "zoom-in" : "default", userSelect: "none", pointerEvents: "none", flexShrink: 0 }} />
         ))}
@@ -318,7 +337,7 @@ function Carousel({ images, height, alt, onClickImage, compact = false }) {
 }
 
 function ParkCard({ park, onClick, isFav, onToggleFav, isVisited, routeMode, routeSelected, onRouteToggle, onLongPress, position }) {
-  const { images, done } = useParkImages(park.slug);
+  const { images, done } = useParkImages(park.slug, park.id);
   const meta = STATUS[park.status];
   const wikiUrl = `https://pt.wikipedia.org/wiki/${encodeURIComponent(park.slug)}`;
   const longPressTimer = useRef(null);
@@ -601,7 +620,7 @@ function VisitSection({ parkId, visit, onSave, onRemove }) {
         {visit.photos && visit.photos.length > 0 && (
           <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
             {visit.photos.map((src, i) => (
-              <img key={i} src={src} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "1px solid #d1d5db" }} />
+              <img key={i} src={src} alt="" loading="lazy" decoding="async" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "1px solid #d1d5db" }} />
             ))}
           </div>
         )}
@@ -632,7 +651,7 @@ function VisitSection({ parkId, visit, onSave, onRemove }) {
           <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
             {photos.map((src, i) => (
               <div key={i} style={{ position: "relative" }}>
-                <img src={src} alt="" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid #d1d5db" }} />
+                <img src={src} alt="" loading="lazy" decoding="async" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid #d1d5db" }} />
                 <button onClick={() => removePhoto(i)} style={{
                   position: "absolute", top: -4, right: -4, background: "#ef4444", color: "#fff",
                   border: "none", borderRadius: "50%", width: 16, height: 16, fontSize: 10,
@@ -662,7 +681,7 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
   const [lightboxIdx, setLightboxIdx] = useState(null);
   const [closing, setClosing] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
-  const fetched = useParkImages(park.slug);
+  const fetched = useParkImages(park.slug, park.id);
   const imgs = (park.images && park.images.length > 0) ? park.images : fetched.images;
 
   const handleClose = useCallback(() => {
@@ -897,7 +916,7 @@ function PassaporteView({ visits, parks, onSelectPark }) {
                 {p.visit.photos && p.visit.photos.length > 0 && (
                   <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
                     {p.visit.photos.slice(0, 4).map((src, i) => (
-                      <img key={i} src={src} alt="" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8, border: "1px solid #e2e8f0" }} />
+                      <img key={i} src={src} alt="" loading="lazy" decoding="async" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8, border: "1px solid #e2e8f0" }} />
                     ))}
                     {p.visit.photos.length > 4 && (
                       <div style={{ width: 56, height: 56, borderRadius: 8, background: "#e2e8f0",
