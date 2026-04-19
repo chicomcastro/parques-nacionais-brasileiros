@@ -10,9 +10,13 @@ Guia interativo dos 74 parques nacionais brasileiros: descubra por distância, m
 O app cobre o que o Google Maps não resolve bem: **descobrir e colecionar um conjunto finito**.
 
 - **Escopo curado** — 74 parques ordenados por distância, com status (aberto/limitado/fechado).
-- **Passaporte digital** — registre visitas com data, notas e fotos; acompanhe seu progresso (N/74).
-- **Roteiros otimizados** — selecione vários parques, veja a rota mais curta, estime dias de viagem e abra no Google Maps.
+- **Mapa geral** — visualize todos os parques no mapa do Brasil com marcadores por status.
+- **Filtro por bioma** — Amazônia, Cerrado, Mata Atlântica, Caatinga, Pantanal, Pampa, Marinho.
+- **Passaporte digital** — registre visitas com data, notas e fotos; acompanhe seu progresso (N/74) e gere uma imagem compartilhável do seu passaporte.
+- **Roteiros editáveis** — selecione vários parques, reordene por drag-and-drop, estime dias de viagem e abra no Google Maps.
 - **Info prática** — entrada, horário, melhor época e trilhas principais, parque a parque.
+- **Deep links** — cada parque tem URL própria (`/parque/<slug>/`) com SEO e redirect pro app.
+- **Bilíngue** — interface em português e inglês (autodetectada, toggle manual).
 - **Offline-first (PWA)** — instalável no celular, funciona sem rede depois do primeiro load.
 
 ## Stack
@@ -32,17 +36,26 @@ O app cobre o que o Google Maps não resolve bem: **descobrir e colecionar um co
 ├── src/
 │   ├── main.jsx         # Bootstrap React + init Amplitude
 │   ├── App.jsx          # Tela principal, modal de parque, navegação
-│   ├── RouteView.jsx    # Modal de roteiro (mapa, lista, compartilhar)
+│   ├── MapView.jsx      # Visualização em mapa com todos os parques
+│   ├── RouteView.jsx    # Modal de roteiro (mapa, lista drag-and-drop, compartilhar)
 │   ├── analytics.mjs    # Wrapper do Amplitude
+│   ├── i18n.mjs         # Dicionário pt/en + toggle de idioma
 │   ├── db.mjs           # IndexedDB (visitas e roteiros salvos)
 │   ├── useVisits.js     # Hook do passaporte
-│   ├── parks-data.mjs   # Dados dos 74 parques
+│   ├── parks-data.mjs   # Dados dos 74 parques (incluindo bioma)
 │   └── styles.css
-├── public/              # Manifest, service worker, ícones
+├── public/              # Manifest, service worker, favicon, ícones
 └── scripts/
-    ├── validate-parks.mjs   # Valida slugs da Wikipedia
-    └── generate-icons.mjs   # Gera ícones PWA
+    ├── validate-parks.mjs        # Valida slugs da Wikipedia
+    ├── generate-icons.mjs        # Gera ícones PWA
+    └── generate-park-pages.mjs   # Gera /parque/<slug>/ + sitemap.xml + robots.txt
 ```
+
+Em produção, o build produz duas entradas (via Vite multi-page):
+
+- `/` — landing page estática
+- `/app/` — SPA do app
+- `/parque/<slug>/` — uma página estática por parque (SEO), com redirect pro app
 
 ## Desenvolvimento
 
