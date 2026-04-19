@@ -2,8 +2,7 @@
 
 Guia interativo dos 74 parques nacionais brasileiros: descubra por distância, marque os que visitou, monte roteiros multi-parque e instale como app no celular.
 
-- **Site**: https://chicomcastro.github.io/parques-nacionais-brasileiros/
-- **App**: https://chicomcastro.github.io/parques-nacionais-brasileiros/app/
+👉 **Experimente**: https://chicomcastro.github.io/parques-nacionais-brasileiros/
 
 ## Diferenciais
 
