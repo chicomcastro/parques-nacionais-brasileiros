@@ -201,7 +201,7 @@ function useParkImages(slug, parkId) {
   const combined = useMemo(() => {
     const remote = images || [];
     if (!hero) return remote;
-    return [hero, ...remote.filter(u => u !== hero)];
+    return [hero, ...remote.slice(1)];
   }, [hero, images]);
 
   return { images: combined, done: done || !!hero };
