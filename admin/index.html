@@ -55,9 +55,8 @@
   <header class="top">
     <h1 id="title">Admin · Curadoria</h1>
     <div class="toolbar">
-      <button id="download" class="secondary">⬇ Baixar overrides.json</button>
-      <button id="load" class="secondary">📂 Carregar overrides.json</button>
-      <input type="file" id="file-input" accept="application/json" style="display: none" />
+      <button id="commit">📝 Commit das mudanças</button>
+      <span id="toast" style="font-size: 12px; color: #22c55e; margin-left: 8px;"></span>
     </div>
   </header>
   <div class="status-bar">
@@ -72,22 +71,67 @@
 <script type="module">
 import { PARKS } from "/src/parks-data.mjs";
 
-const LS = "parques-admin-overrides";
-const overrides = JSON.parse(localStorage.getItem(LS) || "{}");
+let overrides = {};
 let heroes = new Set();
 let selectedId = null;
 
-async function loadManifest() {
+function toast(msg, isError) {
+  const el = document.getElementById("toast");
+  el.style.color = isError ? "#ef4444" : "#22c55e";
+  el.textContent = msg;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.textContent = ""; }, 3000);
+}
+
+async function loadState() {
   try {
-    const r = await fetch("/parques-nacionais-brasileiros/parks/manifest.json");
-    if (r.ok) { const d = await r.json(); heroes = new Set(d.ids || []); }
+    const r = await fetch("/__admin/status");
+    if (r.ok) {
+      const d = await r.json();
+      overrides = d.overrides || {};
+      heroes = new Set(d.manifest?.ids || []);
+    }
   } catch {}
 }
 
-function save() {
-  localStorage.setItem(LS, JSON.stringify(overrides));
-  renderList();
-  renderStats();
+async function applyPick(parkId, url, notes) {
+  toast("Aplicando…");
+  const r = await fetch("/__admin/apply", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parkId, url, notes }),
+  });
+  const d = await r.json();
+  if (!r.ok) { toast(d.error || "Erro", true); return false; }
+  overrides[parkId] = { url, notes: notes || "" };
+  heroes.add(parkId);
+  toast(`Aplicado (${(d.bytes / 1024).toFixed(0)} KB, ${d.webpUsed ? "WebP" : "JPG"})`);
+  renderList(); renderStats();
+  return true;
+}
+
+async function removePick(parkId) {
+  toast("Removendo…");
+  const r = await fetch("/__admin/remove", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parkId }),
+  });
+  const d = await r.json();
+  if (!r.ok) { toast(d.error || "Erro", true); return; }
+  delete overrides[parkId];
+  heroes.delete(parkId);
+  toast("Removido");
+  renderList(); renderStats();
+}
+
+async function commitChanges() {
+  toast("Commitando…");
+  const r = await fetch("/__admin/commit", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: "Update curated park hero images" }),
+  });
+  const d = await r.json();
+  if (!r.ok) { toast(d.error || "Erro", true); return; }
+  toast(d.noop ? "Nada para commitar" : "Commitado!");
 }
 
 function renderStats() {
@@ -148,7 +192,7 @@ async function select(id) {
   const park = PARKS.find(p => p.id === id);
   const detail = document.getElementById("detail");
   const hasHero = heroes.has(id);
-  const currentUrl = overrides[id]?.url || (hasHero ? `/parques-nacionais-brasileiros/parks/${id}.webp` : null);
+  const currentUrl = hasHero ? `/parques-nacionais-brasileiros/parks/${id}.webp?t=${Date.now()}` : (overrides[id]?.url || null);
   detail.innerHTML = `
     <div class="park-header">
       <h2>#${park.id} ${park.name}</h2>
@@ -172,14 +216,8 @@ async function select(id) {
       <textarea id="notes" placeholder="Observação sobre este parque…">${overrides[id]?.notes || ""}</textarea>
     </div>
   `;
-  document.getElementById("notes").addEventListener("input", e => {
-    overrides[id] = overrides[id] || {};
-    overrides[id].notes = e.target.value;
-    if (!overrides[id].notes && !overrides[id].url) delete overrides[id];
-    save();
-  });
   const clr = document.getElementById("clear");
-  if (clr) clr.onclick = () => { delete overrides[id]; save(); select(id); };
+  if (clr) clr.onclick = async () => { await removePick(id); select(id); };
   document.getElementById("refresh").onclick = () => loadCandidates(park);
   loadCandidates(park);
 }
@@ -201,36 +239,18 @@ async function loadCandidates(park) {
     const picked = overrides[park.id]?.url === cand.url;
     div.className = "candidate" + (picked ? " picked" : "");
     div.innerHTML = `<img src="${cand.url}" loading="lazy" /><div class="label">${cand.title.replace(/^File:|^Ficheiro:/, "")}</div>`;
-    div.onclick = () => {
-      overrides[park.id] = { url: cand.url, title: cand.title, notes: overrides[park.id]?.notes || "" };
-      save();
-      select(park.id);
+    div.onclick = async () => {
+      const ok = await applyPick(park.id, cand.url, overrides[park.id]?.notes || "");
+      if (ok) select(park.id);
     };
     c.appendChild(div);
   }
 }
 
-document.getElementById("download").onclick = () => {
-  const blob = new Blob([JSON.stringify(overrides, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "overrides.json";
-  a.click();
-};
-
-document.getElementById("load").onclick = () => document.getElementById("file-input").click();
-document.getElementById("file-input").onchange = async e => {
-  const f = e.target.files[0];
-  if (!f) return;
-  const text = await f.text();
-  const data = JSON.parse(text);
-  Object.assign(overrides, data);
-  save();
-  if (selectedId) select(selectedId);
-};
+document.getElementById("commit").onclick = commitChanges;
 
 (async function init() {
-  await loadManifest();
+  await loadState();
   const sidebar = document.querySelector("aside");
   const search = document.createElement("input");
   search.id = "search";
