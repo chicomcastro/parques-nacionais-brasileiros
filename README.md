@@ -70,6 +70,10 @@ npm run validate   # valida slugs dos parques contra a Wikipedia
 
 Informações dos parques são curadas manualmente em `src/parks-data.mjs`. Imagens são buscadas em runtime pela API pública da Wikipedia com base no slug de cada parque.
 
+## Próximos passos
+
+Ideias ainda não implementadas estão em [BACKLOG.md](BACKLOG.md).
+
 ## Licença
 
 Código aberto. Dados factuais dos parques vêm de fontes públicas (Wikipedia, ICMBio).

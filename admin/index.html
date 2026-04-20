@@ -7,7 +7,11 @@
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: #0f172a; color: #e2e8f0; display: flex; min-height: 100vh; }
-  aside { width: 300px; background: #020617; border-right: 1px solid #1e293b; padding: 12px; overflow-y: auto; height: 100vh; position: sticky; top: 0; }
+  aside { width: 220px; flex-shrink: 0; background: #020617; border-right: 1px solid #1e293b; padding: 12px; overflow-y: auto; height: 100vh; position: sticky; top: 0; }
+  .park-item .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+  @media (max-width: 960px) {
+    aside { width: 180px; }
+  }
   aside h2 { margin: 0 0 10px; font-size: 14px; color: #94a3b8; font-weight: 600; }
   .park-list { display: flex; flex-direction: column; gap: 2px; }
   .park-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: background .15s; }
@@ -40,6 +44,9 @@
   .candidate.picked { border-color: #22c55e; }
   .candidate img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: #0f172a; }
   .candidate .label { position: absolute; bottom: 0; left: 0; right: 0; background: #000a; color: #fff; font-size: 10px; padding: 3px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .candidate .num { position: absolute; top: 4px; left: 4px; background: #0f172ae0; color: #fff; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
+  .shortcut-hint { font-size: 11px; color: #64748b; margin-top: 8px; }
+  kbd { background: #1e293b; color: #e2e8f0; padding: 1px 6px; border-radius: 4px; font-size: 11px; border: 1px solid #334155; font-family: ui-monospace, monospace; }
   .empty { color: #64748b; font-style: italic; padding: 20px; text-align: center; }
   .loading { color: #64748b; text-align: center; padding: 40px; }
   textarea { width: 100%; min-height: 60px; background: #0b1120; color: #e2e8f0; border: 1px solid #1e293b; border-radius: 6px; padding: 8px; font-family: inherit; font-size: 13px; resize: vertical; }
@@ -74,6 +81,7 @@ import { PARKS } from "/src/parks-data.mjs";
 let overrides = {};
 let heroes = new Set();
 let selectedId = null;
+let currentCandidates = [];
 
 function toast(msg, isError) {
   const el = document.getElementById("toast");
@@ -153,7 +161,7 @@ function renderList() {
     const dotClass = hasOverride ? "override" : hasHero ? "hero" : "missing";
     const div = document.createElement("div");
     div.className = "park-item" + (park.id === selectedId ? " active" : "");
-    div.innerHTML = `<span class="id">#${park.id}</span><span class="dot ${dotClass}"></span><span>${park.name}</span>`;
+    div.innerHTML = `<span class="id">#${park.id}</span><span class="dot ${dotClass}"></span><span class="name">${park.name}</span>`;
     div.onclick = () => select(park.id);
     el.appendChild(div);
   }
@@ -208,7 +216,10 @@ async function select(id) {
     </div>
     <div class="candidates-head">
       <h3>Candidatas da Wikipedia</h3>
-      <button id="refresh" class="secondary">↻ Recarregar</button>
+      <div>
+        <span class="shortcut-hint"><kbd>1</kbd>–<kbd>9</kbd> escolher · <kbd>Enter</kbd> pular · <kbd>↓</kbd>/<kbd>↑</kbd> navegar · <kbd>Del</kbd> remover</span>
+        <button id="refresh" class="secondary" style="margin-left:8px">↻</button>
+      </div>
     </div>
     <div id="candidates" class="loading">Carregando imagens…</div>
     <div style="margin-top:16px">
@@ -226,7 +237,9 @@ async function loadCandidates(park) {
   const c = document.getElementById("candidates");
   c.className = "loading";
   c.textContent = "Carregando imagens…";
+  currentCandidates = [];
   const cands = await fetchCandidates(park.slug);
+  currentCandidates = cands;
   if (cands.length === 0) {
     c.className = "empty";
     c.textContent = "Nenhuma candidata encontrada na Wikipedia.";
@@ -234,18 +247,57 @@ async function loadCandidates(park) {
   }
   c.className = "grid";
   c.innerHTML = "";
-  for (const cand of cands) {
+  cands.forEach((cand, i) => {
+    const num = i + 1;
     const div = document.createElement("div");
     const picked = overrides[park.id]?.url === cand.url;
     div.className = "candidate" + (picked ? " picked" : "");
-    div.innerHTML = `<img src="${cand.url}" loading="lazy" /><div class="label">${cand.title.replace(/^File:|^Ficheiro:/, "")}</div>`;
+    div.innerHTML = `<div class="num">${num}</div><img src="${cand.url}" loading="lazy" /><div class="label">${cand.title.replace(/^File:|^Ficheiro:/, "")}</div>`;
     div.onclick = async () => {
-      const ok = await applyPick(park.id, cand.url, overrides[park.id]?.notes || "");
-      if (ok) select(park.id);
+      await applyPick(park.id, cand.url, overrides[park.id]?.notes || "");
+      goNext();
     };
     c.appendChild(div);
-  }
+  });
 }
+
+function goNext() {
+  const ids = PARKS.map(p => p.id);
+  const idx = ids.indexOf(selectedId);
+  const next = ids[(idx + 1) % ids.length];
+  select(next);
+  document.querySelector(`main`).scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function goPrev() {
+  const ids = PARKS.map(p => p.id);
+  const idx = ids.indexOf(selectedId);
+  const next = ids[(idx - 1 + ids.length) % ids.length];
+  select(next);
+}
+
+document.addEventListener("keydown", async e => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (/^[1-9]$/.test(e.key)) {
+    const idx = parseInt(e.key) - 1;
+    const cand = currentCandidates[idx];
+    if (cand && selectedId) {
+      e.preventDefault();
+      await applyPick(selectedId, cand.url, overrides[selectedId]?.notes || "");
+      goNext();
+    }
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    goNext();
+  } else if (e.key === "ArrowDown" || e.key === "j") {
+    e.preventDefault(); goNext();
+  } else if (e.key === "ArrowUp" || e.key === "k") {
+    e.preventDefault(); goPrev();
+  } else if (e.key === "Backspace" || e.key === "Delete") {
+    if (selectedId && overrides[selectedId]) { e.preventDefault(); await removePick(selectedId); select(selectedId); }
+  }
+});
 
 document.getElementById("commit").onclick = commitChanges;
 
