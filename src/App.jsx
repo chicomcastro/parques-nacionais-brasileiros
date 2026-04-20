@@ -1081,6 +1081,13 @@ export default function App() {
     track("park_open", { park_id: p.id, park_name: p.name, source: "deep_link" });
   }, []);
 
+  const sharedRouteRef = useRef((() => {
+    const m = window.location.hash.match(/^#route=([\d,]+)/);
+    if (!m) return null;
+    const ids = m[1].split(",").map(s => parseInt(s, 10)).filter(id => PARKS.some(p => p.id === id));
+    return ids.length > 0 ? ids : null;
+  })());
+
   useEffect(() => {
     if (!search) return;
     const t = setTimeout(() => track("search", { query_length: search.length }), 600);
@@ -1092,14 +1099,24 @@ export default function App() {
     try { return localStorage.getItem("parques-route-mode") === "1"; } catch { return false; }
   });
   const [routeIds, setRouteIds] = useState(() => {
+    if (sharedRouteRef.current) return new Set(sharedRouteRef.current);
     try { return new Set(JSON.parse(localStorage.getItem("parques-route-ids") || "[]")); }
     catch { return new Set(); }
   });
-  const [showRoute, setShowRoute] = useState(false);
+  const [showRoute, setShowRoute] = useState(!!sharedRouteRef.current);
   const [savedRoutes, setSavedRoutes] = useState([]);
-  const [viewingSavedRoute, setViewingSavedRoute] = useState(null);
+  const [viewingSavedRoute, setViewingSavedRoute] = useState(
+    sharedRouteRef.current ? { parkIds: sharedRouteRef.current, name: "" } : null
+  );
 
   useEffect(() => { getAllRoutes().then(setSavedRoutes).catch(() => {}); }, []);
+
+  useEffect(() => {
+    if (!sharedRouteRef.current) return;
+    track("route_shared_link_open", { park_count: sharedRouteRef.current.length });
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    sharedRouteRef.current = null;
+  }, []);
 
   const refreshSavedRoutes = useCallback(() => {
     getAllRoutes().then(setSavedRoutes).catch(() => {});

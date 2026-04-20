@@ -274,9 +274,10 @@ export default function RouteModal({ parks, startLabel, startLat, startLng, onCl
   }, [routeId, ordered.length, animateClose, onClear]);
 
   const handleShare = useCallback(async () => {
-    const text = `🌳 Meu roteiro de parques nacionais!\n\n${ordered.map((p, i) => `${i + 1}. ${p.name} (${p.state})`).join("\n")}\n\n📏 ${total.toLocaleString("pt-BR")} km · ~${days} dias\n\n🔗 https://chicomcastro.github.io/parques-nacionais-brasileiros/app/`;
+    const url = `https://chicomcastro.github.io/parques-nacionais-brasileiros/app/#route=${ordered.map(p => p.id).join(",")}`;
+    const text = `🌳 Meu roteiro de parques nacionais!\n\n${ordered.map((p, i) => `${i + 1}. ${p.name} (${p.state})`).join("\n")}\n\n📏 ${total.toLocaleString("pt-BR")} km · ~${days} dias\n\n🔗 ${url}`;
     if (navigator.share) {
-      try { await navigator.share({ title: "Meu Roteiro de Parques", text }); track("route_share", { method: "native", park_count: ordered.length, total_km: total }); } catch {}
+      try { await navigator.share({ title: "Meu Roteiro de Parques", text, url }); track("route_share", { method: "native", park_count: ordered.length, total_km: total }); } catch {}
     } else {
       await navigator.clipboard.writeText(text);
       track("route_share", { method: "clipboard", park_count: ordered.length, total_km: total });
