@@ -447,6 +447,9 @@ function Lightbox({ images, startIdx, onClose }) {
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const pointersRef = useRef(new Map());
+  const pinchRef = useRef(null);
+  const rootRef = useRef(null);
   const len = images.length;
 
   useEffect(() => { setScale(1); setPos({ x: 0, y: 0 }); }, [idx]);
@@ -461,24 +464,54 @@ function Lightbox({ images, startIdx, onClose }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [len, onClose]);
 
-  const handleWheel = useCallback(e => {
-    e.preventDefault();
-    setScale(s => Math.min(5, Math.max(0.5, s - e.deltaY * 0.002)));
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const onWheel = e => {
+      e.preventDefault();
+      const factor = e.ctrlKey ? 0.01 : 0.002;
+      setScale(s => Math.min(5, Math.max(1, s - e.deltaY * factor)));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
   const handlePointerDown = useCallback(e => {
-    if (scale <= 1) return;
     e.preventDefault();
-    setDragging(true);
-    setDragStart({ x: e.clientX - pos.x, y: e.clientY - pos.y });
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointersRef.current.size === 2) {
+      const [p1, p2] = [...pointersRef.current.values()];
+      const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+      pinchRef.current = { startDist: dist, startScale: scale };
+      setDragging(false);
+    } else if (scale > 1 && pointersRef.current.size === 1) {
+      setDragging(true);
+      setDragStart({ x: e.clientX - pos.x, y: e.clientY - pos.y });
+    }
   }, [scale, pos]);
 
   const handlePointerMove = useCallback(e => {
-    if (!dragging) return;
-    setPos({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+    if (!pointersRef.current.has(e.pointerId)) return;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointersRef.current.size === 2 && pinchRef.current) {
+      const [p1, p2] = [...pointersRef.current.values()];
+      const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+      const next = pinchRef.current.startScale * (dist / pinchRef.current.startDist);
+      setScale(Math.min(5, Math.max(1, next)));
+    } else if (dragging) {
+      setPos({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+    }
   }, [dragging, dragStart]);
 
-  const handlePointerUp = useCallback(() => setDragging(false), []);
+  const handlePointerUp = useCallback(e => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
+    if (pointersRef.current.size === 0) {
+      setDragging(false);
+      setScale(s => { if (s <= 1) { setPos({ x: 0, y: 0 }); return 1; } return s; });
+    }
+  }, []);
 
   const toggleZoom = useCallback(e => {
     e.stopPropagation();
@@ -494,11 +527,10 @@ function Lightbox({ images, startIdx, onClose }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000e", zIndex: 2100,
+    <div ref={rootRef} style={{ position: "fixed", inset: 0, background: "#000e", zIndex: 2100,
       display: "flex", alignItems: "center", justifyContent: "center", touchAction: "none" }}
       onClick={e => { if (e.target === e.currentTarget && scale <= 1) onClose(); }}
-      onWheel={handleWheel}
-      onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
+      onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}>
       <div style={{ position: "absolute", top: 12, right: 12, display: "flex", gap: 8, zIndex: 12 }}>
         <button onClick={toggleZoom} style={{
           background: "#fff2", color: "#fff", border: "none", borderRadius: "50%",
