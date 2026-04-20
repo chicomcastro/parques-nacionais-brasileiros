@@ -1228,7 +1228,7 @@ export default function App() {
           {t("subtitle_count")} {usingGeo ? t("subtitle_you") : t("subtitle_sp")}
         </p>
         <button onClick={() => { const nl = lang === "pt" ? "en" : "pt"; setLang(nl); track("lang_change", { lang: nl }); }} style={{
-          position: "absolute", top: 12, right: 12, background: "#ffffff22", border: "1px solid #fff6",
+          position: "absolute", top: "calc(12px + env(safe-area-inset-top, 0px))", right: 12, background: "#ffffff22", border: "1px solid #fff6",
           color: "#fff", padding: "4px 10px", borderRadius: 16, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
           {lang === "pt" ? "EN" : "PT"}
         </button>
