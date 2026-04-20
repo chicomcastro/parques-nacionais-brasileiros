@@ -607,13 +607,17 @@ function VisitSection({ parkId, visit, onSave, onRemove }) {
       <div style={{ background: "#f0fdf4", borderRadius: 12, padding: 16, border: "1px solid #bbf7d0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontWeight: 700, fontSize: 14, color: "#15803d", whiteSpace: "nowrap" }}>&#10003; {t("visited_on")} {visit.date}</span>
-          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-            <button onClick={() => setEditing(true)} style={{
-              background: "#e2e8f0", border: "none", borderRadius: 8, padding: "4px 10px",
-              cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#475569" }}>{t("edit")}</button>
-            <button onClick={handleRemove} disabled={saving} style={{
-              background: "#fee2e2", border: "none", borderRadius: 8, padding: "4px 10px",
-              cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#dc2626" }}>{t("remove")}</button>
+          <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+            <button onClick={() => setEditing(true)} title={t("edit")} style={{
+              background: "none", border: "none", borderRadius: 8, padding: 6,
+              cursor: "pointer", color: "#475569", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              <span className="material-icons-round" style={{ fontSize: 20 }}>edit</span>
+            </button>
+            <button onClick={handleRemove} disabled={saving} title={t("remove")} style={{
+              background: "none", border: "none", borderRadius: 8, padding: 6,
+              cursor: "pointer", color: "#dc2626", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              <span className="material-icons-round" style={{ fontSize: 20 }}>delete_outline</span>
+            </button>
           </div>
         </div>
         {visit.notes && <p style={{ margin: "8px 0 0", fontSize: 13, color: "#334155", whiteSpace: "pre-wrap" }}>{visit.notes}</p>}
