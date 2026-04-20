@@ -890,7 +890,8 @@ function PassaporteView({ visits, parks, onSelectPark }) {
     const file = new File([blob], "meu-passaporte.png", { type: "image/png" });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
-        await navigator.share({ files: [file], title: "Meu Passaporte", text: `Visitei ${total} de 74 parques nacionais do Brasil 🌳` });
+        const appUrl = "https://chicomcastro.github.io/parques-nacionais-brasileiros/app/";
+        await navigator.share({ files: [file], title: "Meu Passaporte", text: `Visitei ${total} de 74 parques nacionais do Brasil 🌳\n\n${appUrl}`, url: appUrl });
         track("passport_share", { method: "native", visited: total });
       } catch {}
     } else {
