@@ -604,8 +604,8 @@ function VisitSection({ parkId, visit, onSave, onRemove }) {
 
   if (visit && !editing) {
     return (
-      <div style={{ background: "#f0fdf4", borderRadius: 12, padding: 16, border: "1px solid #bbf7d0" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
+      <div style={{ background: "#f0fdf4", borderRadius: 10, padding: "8px 12px", border: "1px solid #bbf7d0" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontWeight: 700, fontSize: 14, color: "#15803d", whiteSpace: "nowrap" }}>&#10003; {t("visited_on")} {visit.date}</span>
           <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
             <button onClick={() => setEditing(true)} title={t("edit")} style={{
