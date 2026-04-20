@@ -776,7 +776,7 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
           <Carousel images={imgs} height="100%" alt={park.name}
             onClickImage={idx => { if (imgs.length > 0) { setLightboxIdx(idx); track("lightbox_open", { park_id: park.id }); } }} />
           <button className="modal-close" onClick={handleClose} style={{ position: "absolute", top: 12, right: 12, background: "#000a", color: "#fff", border: "none",
-            borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3 }}>×</button>
+            borderRadius: "50%", width: 44, height: 44, cursor: "pointer", fontSize: 22, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3 }}>×</button>
         </div>
         <div className="modal-body" style={{ padding: 24 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
