@@ -92,7 +92,7 @@ const DICT = {
     new_route: "Novo Roteiro",
   },
   en: {
-    app_title: "National Parks of Brazil",
+    app_title: "Brazilian National Parks",
     subtitle_count: "74 parks · sorted by distance from",
     subtitle_you: "you",
     subtitle_sp: "São Paulo",

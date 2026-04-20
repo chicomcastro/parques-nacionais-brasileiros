@@ -1232,7 +1232,7 @@ export default function App() {
           color: "#fff", padding: "4px 10px", borderRadius: 16, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
           {lang === "pt" ? "EN" : "PT"}
         </button>
-        <div style={{ marginBottom: 10 }}>
+        <div style={{ marginBottom: 20 }}>
           {geo.status === "idle" && (
             <button className="btn-press" onClick={() => { geo.request(); track("geolocation_request"); }} style={{
               background: "#ffffff22", border: "1px solid #fff6", color: "#fff",
