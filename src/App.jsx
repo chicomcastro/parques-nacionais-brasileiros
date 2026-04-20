@@ -717,6 +717,8 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
   const [lightboxIdx, setLightboxIdx] = useState(null);
   const [closing, setClosing] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
+  const [dragY, setDragY] = useState(0);
+  const dragRef = useRef(null);
   const fetched = useParkImages(park.slug, park.id);
   const imgs = (park.images && park.images.length > 0) ? park.images : fetched.images;
 
@@ -725,6 +727,24 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
     setClosing(true);
     setTimeout(onClose, 250);
   }, [onClose, park.id]);
+
+  const onHandleDown = e => {
+    e.preventDefault();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    dragRef.current = { startY: e.clientY };
+  };
+  const onHandleMove = e => {
+    if (!dragRef.current) return;
+    const dy = Math.max(0, e.clientY - dragRef.current.startY);
+    setDragY(dy);
+  };
+  const onHandleUp = e => {
+    if (!dragRef.current) return;
+    const dy = e.clientY - dragRef.current.startY;
+    dragRef.current = null;
+    if (dy > 80) handleClose();
+    else setDragY(0);
+  };
 
   const handleShare = useCallback(async () => {
     const url = `https://chicomcastro.github.io/parques-nacionais-brasileiros/app/?park=${park.id}`;
@@ -742,7 +762,16 @@ function Modal({ park, onClose, isFav, onToggleFav, visit, onSaveVisit, onRemove
   return (
     <>
     <div onClick={handleClose} className={`modal-backdrop modal-wrap-mobile${closing ? " modal-closing" : ""}`} style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} className={`modal-card modal-content-mobile${closing ? " modal-card-closing" : ""}`} style={{ background: "#fff", borderRadius: 20, overflow: "hidden", maxWidth: 560, width: "100%", boxShadow: "0 20px 60px #0006", maxHeight: "90vh", overflowY: "auto", position: "relative" }}>
+      <div onClick={e => e.stopPropagation()} className={`modal-card modal-content-mobile${closing ? " modal-card-closing" : ""}`} style={{ background: "#fff", borderRadius: 20, overflow: "hidden", maxWidth: 560, width: "100%", boxShadow: "0 20px 60px #0006", maxHeight: "90vh", overflowY: "auto", position: "relative", transform: dragY ? `translateY(${dragY}px)` : undefined, transition: dragRef.current ? "none" : "transform .25s cubic-bezier(0.22, 1, 0.36, 1)" }}>
+        <div
+          className="modal-drag-handle"
+          onPointerDown={onHandleDown}
+          onPointerMove={onHandleMove}
+          onPointerUp={onHandleUp}
+          onPointerCancel={onHandleUp}
+          onClick={handleClose}
+          style={{ position: "absolute", top: 0, left: "25%", right: "25%", height: 28, zIndex: 5, cursor: "grab", touchAction: "none" }}
+        />
         <div className="modal-hero" style={{ height: 280, background: "#e2e8f0", position: "relative" }}>
           <Carousel images={imgs} height="100%" alt={park.name}
             onClickImage={idx => { if (imgs.length > 0) { setLightboxIdx(idx); track("lightbox_open", { park_id: park.id }); } }} />
