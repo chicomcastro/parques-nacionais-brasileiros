@@ -113,7 +113,7 @@ function useFavorites() {
 function FavButton({ active, onClick, size = 24 }) {
   return (
     <button onClick={onClick} style={{
-      background: "none", border: "none", cursor: "pointer", padding: 0,
+      background: "none", border: "none", cursor: "pointer", padding: 10, margin: -10,
       lineHeight: 1, display: "inline-flex", alignItems: "center", justifyContent: "center",
       color: active ? "#ef4444" : "#94a3b8",
       transition: "transform .15s, color .15s",
