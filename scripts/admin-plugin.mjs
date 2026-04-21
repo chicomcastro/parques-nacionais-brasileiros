@@ -8,6 +8,8 @@ const ROOT = resolve(__dirname, "..");
 const PARKS_DIR = resolve(ROOT, "public", "parks");
 const OVERRIDES = resolve(PARKS_DIR, "overrides.json");
 const MANIFEST = resolve(PARKS_DIR, "manifest.json");
+const ALLOWLIST = resolve(PARKS_DIR, "allowlist.json");
+const BLOCKLIST = resolve(PARKS_DIR, "blocklist.json");
 
 const HEADERS = { "User-Agent": "parques-nacionais-brasileiros-admin/1.0" };
 
@@ -87,7 +89,6 @@ export function adminPlugin() {
 
             const converted = await convertToWebp(jpg, webp);
             if (!converted) {
-              // cwebp not installed — keep JPG as fallback, but webp is preferred. Rename.
               await writeFile(webp, buf);
               await unlink(jpg).catch(() => {});
             }
@@ -128,10 +129,64 @@ export function adminPlugin() {
             }
           }
 
+          // Add URL to allowlist (remove from blocklist if present)
+          if (req.method === "POST" && req.url === "/__admin/allow-url") {
+            const { parkId, url } = await readBody(req);
+            if (!parkId || !url) return send(res, 400, { error: "parkId and url required" });
+            const key = String(parkId);
+            const al = await readJson(ALLOWLIST, {});
+            if (!al[key]) al[key] = [];
+            if (!al[key].includes(url)) al[key].push(url);
+            await writeFile(ALLOWLIST, JSON.stringify(al, null, 2), "utf8");
+            const bl = await readJson(BLOCKLIST, {});
+            if (bl[key]) { bl[key] = bl[key].filter(u => u !== url); if (!bl[key].length) delete bl[key]; }
+            await writeFile(BLOCKLIST, JSON.stringify(bl, null, 2), "utf8");
+            return send(res, 200, { ok: true });
+          }
+
+          // Remove URL from allowlist
+          if (req.method === "POST" && req.url === "/__admin/disallow-url") {
+            const { parkId, url } = await readBody(req);
+            if (!parkId || !url) return send(res, 400, { error: "parkId and url required" });
+            const key = String(parkId);
+            const al = await readJson(ALLOWLIST, {});
+            if (al[key]) { al[key] = al[key].filter(u => u !== url); if (!al[key].length) delete al[key]; }
+            await writeFile(ALLOWLIST, JSON.stringify(al, null, 2), "utf8");
+            return send(res, 200, { ok: true });
+          }
+
+          // Add URL to blocklist (remove from allowlist if present)
+          if (req.method === "POST" && req.url === "/__admin/block") {
+            const { parkId, url } = await readBody(req);
+            if (!parkId || !url) return send(res, 400, { error: "parkId and url required" });
+            const key = String(parkId);
+            const bl = await readJson(BLOCKLIST, {});
+            if (!bl[key]) bl[key] = [];
+            if (!bl[key].includes(url)) bl[key].push(url);
+            await writeFile(BLOCKLIST, JSON.stringify(bl, null, 2), "utf8");
+            const al = await readJson(ALLOWLIST, {});
+            if (al[key]) { al[key] = al[key].filter(u => u !== url); if (!al[key].length) delete al[key]; }
+            await writeFile(ALLOWLIST, JSON.stringify(al, null, 2), "utf8");
+            return send(res, 200, { ok: true });
+          }
+
+          // Remove URL from blocklist
+          if (req.method === "POST" && req.url === "/__admin/unblock") {
+            const { parkId, url } = await readBody(req);
+            if (!parkId || !url) return send(res, 400, { error: "parkId and url required" });
+            const key = String(parkId);
+            const bl = await readJson(BLOCKLIST, {});
+            if (bl[key]) { bl[key] = bl[key].filter(u => u !== url); if (!bl[key].length) delete bl[key]; }
+            await writeFile(BLOCKLIST, JSON.stringify(bl, null, 2), "utf8");
+            return send(res, 200, { ok: true });
+          }
+
           if (req.method === "GET" && req.url === "/__admin/status") {
             const overrides = await readJson(OVERRIDES, {});
             const manifest = await readJson(MANIFEST, { ids: [] });
-            return send(res, 200, { overrides, manifest });
+            const allowlist = await readJson(ALLOWLIST, {});
+            const blocklist = await readJson(BLOCKLIST, {});
+            return send(res, 200, { overrides, manifest, allowlist, blocklist });
           }
 
           return send(res, 404, { error: "not found" });

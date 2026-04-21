@@ -22,6 +22,8 @@
   .dot.override { background: #3b82f6; }
   .dot.hero { background: #22c55e; }
   .dot.missing { background: #ef4444; }
+  .dot.uncurated { background: #f59e0b; }
+  .new-badge { position: absolute; top: 4px; left: 30px; background: #f59e0b; color: #000; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 8px; letter-spacing: .4px; }
   main { flex: 1; padding: 24px; }
   header.top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
   header.top h1 { margin: 0; font-size: 20px; }
@@ -45,6 +47,14 @@
   .candidate img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: #0f172a; }
   .candidate .label { position: absolute; bottom: 0; left: 0; right: 0; background: #000a; color: #fff; font-size: 10px; padding: 3px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .candidate .num { position: absolute; top: 4px; left: 4px; background: #0f172ae0; color: #fff; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
+  .candidate .block-btn { position: absolute; top: 4px; right: 4px; background: #0f172ae0; color: #ef4444; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; border: none; cursor: pointer; padding: 0; opacity: 0; transition: opacity .15s; line-height: 1; }
+  .candidate:hover .block-btn { opacity: 1; }
+  .candidate.allowed { border-color: #22c55e; }
+  .candidate.blocked { opacity: 0.4; border-color: #ef4444; }
+  .candidate.blocked .block-btn { opacity: 1; color: #94a3b8; }
+  .cover-btn { position: absolute; bottom: 28px; right: 4px; background: #0f172ae0; color: #fff; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; border: none; cursor: pointer; padding: 0; opacity: 0; transition: opacity .15s; }
+  .candidate:hover .cover-btn { opacity: 1; }
+  .check-badge { position: absolute; top: 4px; left: 30px; background: #22c55e; color: #000; font-size: 10px; font-weight: 800; padding: 1px 5px; border-radius: 8px; }
   .shortcut-hint { font-size: 11px; color: #64748b; margin-top: 8px; }
   kbd { background: #1e293b; color: #e2e8f0; padding: 1px 6px; border-radius: 4px; font-size: 11px; border: 1px solid #334155; font-family: ui-monospace, monospace; }
   .empty { color: #64748b; font-style: italic; padding: 20px; text-align: center; }
@@ -70,6 +80,7 @@
     <span><span class="dot hero" style="display:inline-block"></span> com hero</span>
     <span><span class="dot override" style="display:inline-block"></span> override ativo</span>
     <span><span class="dot missing" style="display:inline-block"></span> sem imagem</span>
+    <span><span class="dot uncurated" style="display:inline-block"></span> não curado</span>
     <span id="stats"></span>
   </div>
   <div id="detail"></div>
@@ -80,8 +91,11 @@ import { PARKS } from "/src/parks-data.mjs";
 
 let overrides = {};
 let heroes = new Set();
+let allowlist = {};  // { parkId: [url,...] }
+let blocklist = {};  // { parkId: [url,...] }
 let selectedId = null;
 let currentCandidates = [];
+let newUrlsSet = new Set();
 
 function toast(msg, isError) {
   const el = document.getElementById("toast");
@@ -98,6 +112,8 @@ async function loadState() {
       const d = await r.json();
       overrides = d.overrides || {};
       heroes = new Set(d.manifest?.ids || []);
+      allowlist = d.allowlist || {};
+      blocklist = d.blocklist || {};
     }
   } catch {}
 }
@@ -115,6 +131,92 @@ async function applyPick(parkId, url, notes) {
   toast(`Aplicado (${(d.bytes / 1024).toFixed(0)} KB, ${d.webpUsed ? "WebP" : "JPG"})`);
   renderList(); renderStats();
   return true;
+}
+
+async function allowUrl(parkId, url) {
+  const r = await fetch("/__admin/allow-url", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parkId, url }),
+  });
+  if (!r.ok) { toast("Erro", true); return; }
+  const key = String(parkId);
+  if (!allowlist[key]) allowlist[key] = [];
+  if (!allowlist[key].includes(url)) allowlist[key].push(url);
+  if (blocklist[key]) blocklist[key] = blocklist[key].filter(u => u !== url);
+  toast("✓ Adicionada ao app");
+  renderCandidates(parkId);
+}
+
+async function blockUrl(parkId, url) {
+  const r = await fetch("/__admin/block", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parkId, url }),
+  });
+  if (!r.ok) { toast("Erro", true); return; }
+  const key = String(parkId);
+  if (!blocklist[key]) blocklist[key] = [];
+  if (!blocklist[key].includes(url)) blocklist[key].push(url);
+  if (allowlist[key]) allowlist[key] = allowlist[key].filter(u => u !== url);
+  toast("✕ Bloqueada");
+  renderCandidates(parkId);
+}
+
+async function unblockUrl(parkId, url) {
+  const r = await fetch("/__admin/unblock", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parkId, url }),
+  });
+  if (!r.ok) { toast("Erro", true); return; }
+  const key = String(parkId);
+  if (blocklist[key]) blocklist[key] = blocklist[key].filter(u => u !== url);
+  toast("Desbloqueada");
+  renderCandidates(parkId);
+}
+
+function renderCandidates(parkId) {
+  const c = document.getElementById("candidates");
+  if (!c || currentCandidates.length === 0) return;
+  const allowed = new Set(allowlist[String(parkId)] || []);
+  const blocked = new Set(blocklist[String(parkId)] || []);
+  c.className = "grid";
+  c.innerHTML = "";
+  currentCandidates.forEach((cand, i) => {
+    const num = i + 1;
+    const isCover = overrides[parkId]?.url === cand.url;
+    const isAllowed = allowed.has(cand.url);
+    const isBlocked = blocked.has(cand.url);
+    const isNew = newUrlsSet.has(cand.url);
+    const div = document.createElement("div");
+    let cls = "candidate";
+    if (isCover) cls += " picked";
+    else if (isAllowed) cls += " allowed";
+    else if (isBlocked) cls += " blocked";
+    div.className = cls;
+
+    const blockBtn = isBlocked
+      ? `<button class="block-btn unblock-btn" title="Desbloquear">↩</button>`
+      : `<button class="block-btn" title="Bloquear">✕</button>`;
+    const coverBtn = !isBlocked
+      ? `<button class="cover-btn" title="Definir como capa">📷</button>`
+      : "";
+    const newBadge = isNew ? `<div class="new-badge">NOVO</div>` : "";
+    const checkBadge = isAllowed ? `<div class="check-badge">✓</div>` : "";
+
+    div.innerHTML = `<div class="num">${num}</div><img src="${cand.url}" loading="lazy" /><div class="label">${cand.title.replace(/^File:|^Ficheiro:/, "")}</div>${blockBtn}${coverBtn}${newBadge}${checkBadge}`;
+
+    div.querySelector(".block-btn").onclick = async e => {
+      e.stopPropagation();
+      if (isBlocked) await unblockUrl(parkId, cand.url);
+      else await blockUrl(parkId, cand.url);
+    };
+    const cb = div.querySelector(".cover-btn");
+    if (cb) cb.onclick = async e => { e.stopPropagation(); await applyPick(parkId, cand.url, overrides[parkId]?.notes || ""); };
+    div.onclick = async () => {
+      if (isAllowed) { /* already allowed, toggle off */ await fetch("/__admin/disallow-url", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({parkId, url: cand.url}) }); const key = String(parkId); if (allowlist[key]) allowlist[key] = allowlist[key].filter(u => u !== cand.url); toast("Removida do app"); renderCandidates(parkId); }
+      else await allowUrl(parkId, cand.url);
+    };
+    c.appendChild(div);
+  });
 }
 
 async function removePick(parkId) {
@@ -158,7 +260,8 @@ function renderList() {
     count++;
     const hasOverride = !!overrides[park.id];
     const hasHero = heroes.has(park.id);
-    const dotClass = hasOverride ? "override" : hasHero ? "hero" : "missing";
+    const hasCurated = (allowlist[String(park.id)]?.length > 0) || (blocklist[String(park.id)]?.length > 0);
+    const dotClass = hasOverride ? "override" : hasHero ? "hero" : hasCurated ? "missing" : "uncurated";
     const div = document.createElement("div");
     div.className = "park-item" + (park.id === selectedId ? " active" : "");
     div.innerHTML = `<span class="id">#${park.id}</span><span class="dot ${dotClass}"></span><span class="name">${park.name}</span>`;
@@ -217,7 +320,7 @@ async function select(id) {
     <div class="candidates-head">
       <h3>Candidatas da Wikipedia</h3>
       <div>
-        <span class="shortcut-hint"><kbd>1</kbd>–<kbd>9</kbd> escolher · <kbd>Enter</kbd> pular · <kbd>↓</kbd>/<kbd>↑</kbd> navegar · <kbd>Del</kbd> remover</span>
+        <span class="shortcut-hint"><kbd>1</kbd>–<kbd>9</kbd> allowlist · <kbd>↓</kbd>/<kbd>↑</kbd> navegar · <kbd>Del</kbd> remover capa</span>
         <button id="refresh" class="secondary" style="margin-left:8px">↻</button>
       </div>
     </div>
@@ -245,20 +348,9 @@ async function loadCandidates(park) {
     c.textContent = "Nenhuma candidata encontrada na Wikipedia.";
     return;
   }
-  c.className = "grid";
-  c.innerHTML = "";
-  cands.forEach((cand, i) => {
-    const num = i + 1;
-    const div = document.createElement("div");
-    const picked = overrides[park.id]?.url === cand.url;
-    div.className = "candidate" + (picked ? " picked" : "");
-    div.innerHTML = `<div class="num">${num}</div><img src="${cand.url}" loading="lazy" /><div class="label">${cand.title.replace(/^File:|^Ficheiro:/, "")}</div>`;
-    div.onclick = async () => {
-      await applyPick(park.id, cand.url, overrides[park.id]?.notes || "");
-      goNext();
-    };
-    c.appendChild(div);
-  });
+  const knownUrls = new Set([...(allowlist[String(park.id)] || []), ...(blocklist[String(park.id)] || [])]);
+  newUrlsSet = new Set(cands.map(cd => cd.url).filter(u => !knownUrls.has(u)));
+  renderCandidates(park.id);
 }
 
 function goNext() {
@@ -284,12 +376,8 @@ document.addEventListener("keydown", async e => {
     const cand = currentCandidates[idx];
     if (cand && selectedId) {
       e.preventDefault();
-      await applyPick(selectedId, cand.url, overrides[selectedId]?.notes || "");
-      goNext();
+      await allowUrl(selectedId, cand.url);
     }
-  } else if (e.key === "Enter") {
-    e.preventDefault();
-    goNext();
   } else if (e.key === "ArrowDown" || e.key === "j") {
     e.preventDefault(); goNext();
   } else if (e.key === "ArrowUp" || e.key === "k") {

@@ -78,6 +78,12 @@ fetch(`${import.meta.env.BASE_URL}parks/manifest.json`)
   .then(d => { for (const id of d.ids || []) heroManifest.add(id); })
   .catch(() => {});
 
+const wikiAllowlist = {};
+fetch(`${import.meta.env.BASE_URL}parks/allowlist.json`)
+  .then(r => r.ok ? r.json() : {})
+  .then(d => { Object.assign(wikiAllowlist, d); })
+  .catch(() => {});
+
 function heroUrl(parkId) {
   return heroManifest.has(parkId) ? `${import.meta.env.BASE_URL}parks/${parkId}.webp` : null;
 }
@@ -185,26 +191,14 @@ function fetchAllImages(slug) {
 
 function useParkImages(slug, parkId) {
   const hero = parkId ? heroUrl(parkId) : null;
-  const [images, setImages] = useState(imgCache[slug] ?? null);
-  const [done, setDone] = useState(slug in imgCache);
-
-  useEffect(() => {
-    if (slug in imgCache) { setImages(imgCache[slug]); setDone(true); return; }
-    let alive = true;
-    fetchAllImages(slug).then(imgs => {
-      imgCache[slug] = imgs;
-      if (alive) { setImages(imgs); setDone(true); }
-    });
-    return () => { alive = false; };
-  }, [slug]);
 
   const combined = useMemo(() => {
-    const remote = images || [];
+    const remote = parkId ? (wikiAllowlist[String(parkId)] || wikiAllowlist[parkId] || []) : [];
     if (!hero) return remote;
     return [hero, ...remote.slice(1)];
-  }, [hero, images]);
+  }, [hero, parkId]);
 
-  return { images: combined, done: done || !!hero };
+  return { images: combined, done: true };
 }
 
 function Carousel({ images, height, alt, onClickImage, compact = false }) {
