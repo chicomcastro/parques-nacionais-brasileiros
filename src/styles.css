@@ -119,6 +119,7 @@ body {
 .carousel-arrow { opacity: 0; transition: opacity .2s; }
 @media (hover: hover) {
   .card-enter:hover .carousel-arrow { opacity: 1; }
+  .modal-hero:hover .carousel-arrow { opacity: 1; }
 }
 @media (hover: none) {
   .carousel-arrow { opacity: 0; pointer-events: none; }

@@ -73,19 +73,36 @@ const imgCache = {};
 const LS_KEY = "parques-favoritos";
 
 const heroManifest = new Set();
+const heroEntries = {};
+const wikiAllowlist = {};
+const _parkDataListeners = new Set();
+function _notifyParkData() { _parkDataListeners.forEach(fn => fn()); }
+
 fetch(`${import.meta.env.BASE_URL}parks/manifest.json`)
   .then(r => r.ok ? r.json() : { ids: [] })
-  .then(d => { for (const id of d.ids || []) heroManifest.add(id); })
+  .then(d => { for (const id of d.ids || []) heroManifest.add(id); _notifyParkData(); })
   .catch(() => {});
-
-const wikiAllowlist = {};
+fetch(`${import.meta.env.BASE_URL}parks/heroes.json`)
+  .then(r => r.ok ? r.json() : {})
+  .then(d => { Object.assign(heroEntries, d); _notifyParkData(); })
+  .catch(() => {});
 fetch(`${import.meta.env.BASE_URL}parks/allowlist.json`)
   .then(r => r.ok ? r.json() : {})
-  .then(d => { Object.assign(wikiAllowlist, d); })
+  .then(d => { Object.assign(wikiAllowlist, d); _notifyParkData(); })
   .catch(() => {});
 
 function heroUrl(parkId) {
-  return heroManifest.has(parkId) ? `${import.meta.env.BASE_URL}parks/${parkId}.webp` : null;
+  if (heroManifest.has(parkId)) return `${import.meta.env.BASE_URL}parks/${parkId}.webp`;
+  const entry = heroEntries[parkId] || heroEntries[String(parkId)];
+  return entry?.url || null;
+}
+
+function computeParkImages(parkId) {
+  const hero = parkId ? heroUrl(parkId) : null;
+  const remote = parkId ? (wikiAllowlist[String(parkId)] || wikiAllowlist[parkId] || []) : [];
+  if (!hero) return remote;
+  const sourceUrl = (heroEntries[parkId] || heroEntries[String(parkId)])?.url;
+  return [hero, ...remote.filter(u => u !== hero && u !== sourceUrl)];
 }
 const impressionSeen = new Set();
 
@@ -190,15 +207,16 @@ function fetchAllImages(slug) {
 }
 
 function useParkImages(slug, parkId) {
-  const hero = parkId ? heroUrl(parkId) : null;
+  const [images, setImages] = useState(() => computeParkImages(parkId));
 
-  const combined = useMemo(() => {
-    const remote = parkId ? (wikiAllowlist[String(parkId)] || wikiAllowlist[parkId] || []) : [];
-    if (!hero) return remote;
-    return [hero, ...remote.slice(1)];
-  }, [hero, parkId]);
+  useEffect(() => {
+    setImages(computeParkImages(parkId));
+    const update = () => setImages(computeParkImages(parkId));
+    _parkDataListeners.add(update);
+    return () => _parkDataListeners.delete(update);
+  }, [parkId]);
 
-  return { images: combined, done: true };
+  return { images, done: true };
 }
 
 function Carousel({ images, height, alt, onClickImage, compact = false }) {
@@ -218,7 +236,7 @@ function Carousel({ images, height, alt, onClickImage, compact = false }) {
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [len]);
 
   const prev = useCallback((e) => {
     e.stopPropagation();
@@ -255,6 +273,7 @@ function Carousel({ images, height, alt, onClickImage, compact = false }) {
     touchStart.current = null;
     setDrag(0);
     if (len > 1 && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+      e.stopPropagation();
       if (dx < 0) setIdx(i => (i + 1) % len);
       else setIdx(i => (i - 1 + len) % len);
     }

@@ -61,6 +61,13 @@
   .loading { color: #64748b; text-align: center; padding: 40px; }
   textarea { width: 100%; min-height: 60px; background: #0b1120; color: #e2e8f0; border: 1px solid #1e293b; border-radius: 6px; padding: 8px; font-family: inherit; font-size: 13px; resize: vertical; }
   .status-bar { padding: 8px 12px; background: #1e293b; border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #94a3b8; display: flex; gap: 16px; flex-wrap: wrap; }
+  .status-bar span { cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: background .15s; }
+  .status-bar span:hover { background: #334155; }
+  .status-bar span.active-filter { background: #334155; color: #e2e8f0; }
+  .filter-chips { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+  .chip { font-size: 11px; padding: 3px 8px; border-radius: 10px; cursor: pointer; background: #1e293b; color: #94a3b8; border: 1px solid transparent; text-align: left; display: flex; align-items: center; gap: 5px; }
+  .chip:hover { border-color: #334155; color: #e2e8f0; }
+  .chip.active { border-color: #475569; color: #e2e8f0; background: #334155; }
 </style>
 </head>
 <body>
@@ -77,10 +84,10 @@
     </div>
   </header>
   <div class="status-bar">
-    <span><span class="dot hero" style="display:inline-block"></span> com hero</span>
-    <span><span class="dot override" style="display:inline-block"></span> override ativo</span>
-    <span><span class="dot missing" style="display:inline-block"></span> sem imagem</span>
-    <span><span class="dot uncurated" style="display:inline-block"></span> não curado</span>
+    <span data-filter="all" class="active-filter">todos</span>
+    <span data-filter="hero"><span class="dot hero" style="display:inline-block"></span> com imagens</span>
+    <span data-filter="missing"><span class="dot missing" style="display:inline-block"></span> sem imagens</span>
+    <span data-filter="uncurated"><span class="dot uncurated" style="display:inline-block"></span> não curado</span>
     <span id="stats"></span>
   </div>
   <div id="detail"></div>
@@ -89,13 +96,15 @@
 <script type="module">
 import { PARKS } from "/src/parks-data.mjs";
 
-let overrides = {};
-let heroes = new Set();
+let heroes = {};       // heroes.json entries { parkId: { url, notes } }
+let localHeroes = new Set();  // parks with local .webp file
 let allowlist = {};  // { parkId: [url,...] }
 let blocklist = {};  // { parkId: [url,...] }
 let selectedId = null;
 let currentCandidates = [];
 let newUrlsSet = new Set();
+let noCandidatesSet = new Set();  // parks confirmed to have no Wikipedia images this session
+let activeFilter = "all";
 
 function toast(msg, isError) {
   const el = document.getElementById("toast");
@@ -110,8 +119,8 @@ async function loadState() {
     const r = await fetch("/__admin/status");
     if (r.ok) {
       const d = await r.json();
-      overrides = d.overrides || {};
-      heroes = new Set(d.manifest?.ids || []);
+      heroes = d.heroes || {};
+      localHeroes = new Set(d.manifest?.ids || []);
       allowlist = d.allowlist || {};
       blocklist = d.blocklist || {};
     }
@@ -126,8 +135,8 @@ async function applyPick(parkId, url, notes) {
   });
   const d = await r.json();
   if (!r.ok) { toast(d.error || "Erro", true); return false; }
-  overrides[parkId] = { url, notes: notes || "" };
-  heroes.add(parkId);
+  heroes[parkId] = { url, notes: notes || "" };
+  localHeroes.add(parkId);
   toast(`Aplicado (${(d.bytes / 1024).toFixed(0)} KB, ${d.webpUsed ? "WebP" : "JPG"})`);
   renderList(); renderStats();
   return true;
@@ -182,7 +191,7 @@ function renderCandidates(parkId) {
   c.innerHTML = "";
   currentCandidates.forEach((cand, i) => {
     const num = i + 1;
-    const isCover = overrides[parkId]?.url === cand.url;
+    const isCover = heroes[parkId]?.url === cand.url;
     const isAllowed = allowed.has(cand.url);
     const isBlocked = blocked.has(cand.url);
     const isNew = newUrlsSet.has(cand.url);
@@ -210,7 +219,7 @@ function renderCandidates(parkId) {
       else await blockUrl(parkId, cand.url);
     };
     const cb = div.querySelector(".cover-btn");
-    if (cb) cb.onclick = async e => { e.stopPropagation(); await applyPick(parkId, cand.url, overrides[parkId]?.notes || ""); };
+    if (cb) cb.onclick = async e => { e.stopPropagation(); await applyPick(parkId, cand.url, heroes[parkId]?.notes || ""); };
     div.onclick = async () => {
       if (isAllowed) { /* already allowed, toggle off */ await fetch("/__admin/disallow-url", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({parkId, url: cand.url}) }); const key = String(parkId); if (allowlist[key]) allowlist[key] = allowlist[key].filter(u => u !== cand.url); toast("Removida do app"); renderCandidates(parkId); }
       else await allowUrl(parkId, cand.url);
@@ -227,8 +236,8 @@ async function removePick(parkId) {
   });
   const d = await r.json();
   if (!r.ok) { toast(d.error || "Erro", true); return; }
-  delete overrides[parkId];
-  heroes.delete(parkId);
+  delete heroes[parkId];
+  localHeroes.delete(parkId);
   toast("Removido");
   renderList(); renderStats();
 }
@@ -245,9 +254,16 @@ async function commitChanges() {
 }
 
 function renderStats() {
-  const h = heroes.size;
-  const o = Object.keys(overrides).length;
-  document.getElementById("stats").textContent = `${h}/${PARKS.length} com hero · ${o} overrides pendentes`;
+  const total = PARKS.filter(p => allowlist[String(p.id)]?.length > 0 || localHeroes.has(p.id) || !!heroes[p.id]).length;
+  document.getElementById("stats").textContent = `${total}/${PARKS.length} com imagens`;
+}
+
+function parkDotClass(park) {
+  const hasAllowlist = allowlist[String(park.id)]?.length > 0;
+  const hasBlocklist = blocklist[String(park.id)]?.length > 0;
+  if (hasAllowlist || localHeroes.has(park.id) || !!heroes[park.id]) return "hero";
+  if (hasBlocklist || noCandidatesSet.has(park.id)) return "missing";
+  return "uncurated";
 }
 
 function renderList() {
@@ -257,11 +273,9 @@ function renderList() {
   let count = 0;
   for (const park of PARKS) {
     if (q && !park.name.toLowerCase().includes(q)) continue;
+    const dotClass = parkDotClass(park);
+    if (activeFilter !== "all" && dotClass !== activeFilter) continue;
     count++;
-    const hasOverride = !!overrides[park.id];
-    const hasHero = heroes.has(park.id);
-    const hasCurated = (allowlist[String(park.id)]?.length > 0) || (blocklist[String(park.id)]?.length > 0);
-    const dotClass = hasOverride ? "override" : hasHero ? "hero" : hasCurated ? "missing" : "uncurated";
     const div = document.createElement("div");
     div.className = "park-item" + (park.id === selectedId ? " active" : "");
     div.innerHTML = `<span class="id">#${park.id}</span><span class="dot ${dotClass}"></span><span class="name">${park.name}</span>`;
@@ -302,8 +316,8 @@ async function select(id) {
   renderList();
   const park = PARKS.find(p => p.id === id);
   const detail = document.getElementById("detail");
-  const hasHero = heroes.has(id);
-  const currentUrl = hasHero ? `/parques-nacionais-brasileiros/parks/${id}.webp?t=${Date.now()}` : (overrides[id]?.url || null);
+  const hasHero = localHeroes.has(id);
+  const currentUrl = hasHero ? `/parques-nacionais-brasileiros/parks/${id}.webp?t=${Date.now()}` : (heroes[id]?.url || null);
   detail.innerHTML = `
     <div class="park-header">
       <h2>#${park.id} ${park.name}</h2>
@@ -312,10 +326,10 @@ async function select(id) {
       <span class="tag">${park.status}</span>
     </div>
     <div class="current">
-      <h3>${overrides[id] ? "Override ativo" : hasHero ? "Hero atual (Wikipedia default)" : "Sem imagem"}</h3>
+      <h3>${heroes[id] ? "Override ativo" : hasHero ? "Hero atual (Wikipedia default)" : "Sem imagem"}</h3>
       ${currentUrl ? `<img src="${currentUrl}" />` : `<div class="empty">Nenhuma imagem selecionada</div>`}
-      ${overrides[id]?.url ? `<div class="src">${overrides[id].url}</div>` : ""}
-      ${overrides[id] ? `<button class="secondary" style="margin-top:8px" id="clear">Remover override</button>` : ""}
+      ${heroes[id]?.url ? `<div class="src">${heroes[id].url}</div>` : ""}
+      ${heroes[id] ? `<button class="secondary" style="margin-top:8px" id="clear">Remover override</button>` : ""}
     </div>
     <div class="candidates-head">
       <h3>Candidatas da Wikipedia</h3>
@@ -326,8 +340,8 @@ async function select(id) {
     </div>
     <div id="candidates" class="loading">Carregando imagens…</div>
     <div style="margin-top:16px">
-      <h3 style="font-size:13px;color:#94a3b8;margin:0 0 6px">Notas (pra commitar nos overrides)</h3>
-      <textarea id="notes" placeholder="Observação sobre este parque…">${overrides[id]?.notes || ""}</textarea>
+      <h3 style="font-size:13px;color:#94a3b8;margin:0 0 6px">Notas</h3>
+      <textarea id="notes" placeholder="Observação sobre este parque…">${heroes[id]?.notes || ""}</textarea>
     </div>
   `;
   const clr = document.getElementById("clear");
@@ -344,6 +358,8 @@ async function loadCandidates(park) {
   const cands = await fetchCandidates(park.slug);
   currentCandidates = cands;
   if (cands.length === 0) {
+    noCandidatesSet.add(park.id);
+    renderList();
     c.className = "empty";
     c.textContent = "Nenhuma candidata encontrada na Wikipedia.";
     return;
@@ -383,7 +399,7 @@ document.addEventListener("keydown", async e => {
   } else if (e.key === "ArrowUp" || e.key === "k") {
     e.preventDefault(); goPrev();
   } else if (e.key === "Backspace" || e.key === "Delete") {
-    if (selectedId && overrides[selectedId]) { e.preventDefault(); await removePick(selectedId); select(selectedId); }
+    if (selectedId && heroes[selectedId]) { e.preventDefault(); await removePick(selectedId); select(selectedId); }
   }
 });
 
@@ -398,6 +414,14 @@ document.getElementById("commit").onclick = commitChanges;
   search.style.cssText = "width:100%;padding:6px 10px;margin-bottom:8px;border-radius:6px;border:1px solid #1e293b;background:#0b1120;color:#e2e8f0;font-size:13px;";
   search.oninput = renderList;
   sidebar.insertBefore(search, document.getElementById("park-list"));
+  document.querySelectorAll(".status-bar [data-filter]").forEach(el => {
+    el.onclick = () => {
+      activeFilter = el.dataset.filter;
+      document.querySelectorAll(".status-bar [data-filter]").forEach(e => e.classList.remove("active-filter"));
+      el.classList.add("active-filter");
+      renderList();
+    };
+  });
   renderList();
   renderStats();
   if (PARKS.length > 0) select(PARKS[0].id);

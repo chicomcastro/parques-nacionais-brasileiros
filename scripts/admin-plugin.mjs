@@ -6,7 +6,7 @@ import { spawn } from "node:child_process";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const PARKS_DIR = resolve(ROOT, "public", "parks");
-const OVERRIDES = resolve(PARKS_DIR, "overrides.json");
+const HEROES = resolve(PARKS_DIR, "heroes.json");
 const MANIFEST = resolve(PARKS_DIR, "manifest.json");
 const ALLOWLIST = resolve(PARKS_DIR, "allowlist.json");
 const BLOCKLIST = resolve(PARKS_DIR, "blocklist.json");
@@ -93,9 +93,9 @@ export function adminPlugin() {
               await unlink(jpg).catch(() => {});
             }
 
-            const overrides = await readJson(OVERRIDES, {});
+            const overrides = await readJson(HEROES, {});
             overrides[parkId] = { url, notes: notes || "", appliedAt: Date.now() };
-            await writeFile(OVERRIDES, JSON.stringify(overrides, null, 2), "utf8");
+            await writeFile(HEROES, JSON.stringify(overrides, null, 2), "utf8");
 
             const ids = await regenerateManifest();
             return send(res, 200, { ok: true, bytes: buf.length, webpUsed: converted, idsWithHero: ids.length });
@@ -108,9 +108,9 @@ export function adminPlugin() {
             const jpg = resolve(PARKS_DIR, `${parkId}.jpg`);
             if (await exists(webp)) await unlink(webp);
             if (await exists(jpg)) await unlink(jpg);
-            const overrides = await readJson(OVERRIDES, {});
+            const overrides = await readJson(HEROES, {});
             delete overrides[parkId];
-            await writeFile(OVERRIDES, JSON.stringify(overrides, null, 2), "utf8");
+            await writeFile(HEROES, JSON.stringify(overrides, null, 2), "utf8");
             const ids = await regenerateManifest();
             return send(res, 200, { ok: true, idsWithHero: ids.length });
           }
@@ -129,18 +129,24 @@ export function adminPlugin() {
             }
           }
 
-          // Add URL to allowlist (remove from blocklist if present)
+          // Add URL to allowlist (remove from blocklist if present; auto-set hero if first)
           if (req.method === "POST" && req.url === "/__admin/allow-url") {
             const { parkId, url } = await readBody(req);
             if (!parkId || !url) return send(res, 400, { error: "parkId and url required" });
             const key = String(parkId);
             const al = await readJson(ALLOWLIST, {});
+            const isFirst = !al[key] || al[key].length === 0;
             if (!al[key]) al[key] = [];
             if (!al[key].includes(url)) al[key].push(url);
             await writeFile(ALLOWLIST, JSON.stringify(al, null, 2), "utf8");
             const bl = await readJson(BLOCKLIST, {});
             if (bl[key]) { bl[key] = bl[key].filter(u => u !== url); if (!bl[key].length) delete bl[key]; }
             await writeFile(BLOCKLIST, JSON.stringify(bl, null, 2), "utf8");
+            // Auto-set as hero if this is the first approved image for the park
+            if (isFirst) {
+              const hr = await readJson(HEROES, {});
+              if (!hr[parkId]) { hr[parkId] = { url, notes: "" }; await writeFile(HEROES, JSON.stringify(hr, null, 2), "utf8"); }
+            }
             return send(res, 200, { ok: true });
           }
 
@@ -182,11 +188,11 @@ export function adminPlugin() {
           }
 
           if (req.method === "GET" && req.url === "/__admin/status") {
-            const overrides = await readJson(OVERRIDES, {});
+            const heroes = await readJson(HEROES, {});
             const manifest = await readJson(MANIFEST, { ids: [] });
             const allowlist = await readJson(ALLOWLIST, {});
             const blocklist = await readJson(BLOCKLIST, {});
-            return send(res, 200, { overrides, manifest, allowlist, blocklist });
+            return send(res, 200, { heroes, manifest, allowlist, blocklist });
           }
 
           return send(res, 404, { error: "not found" });
